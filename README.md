@@ -1,4 +1,4 @@
-# Brazier — Flame Management (0.1.3)
+# Brazier — Flame Management (0.1.4)
 
 **Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
@@ -15,7 +15,7 @@ For manual installation:
 1. **Back up your Foundry world.** This module creates Journal Entries to store trees and access-limited projections.
 2. Extract the release ZIP contents into a folder named `brazier` so that `module.json` is located inside your Foundry user data directory at `Data/modules/brazier/module.json`. The folder name must be `brazier`.
 3. Restart Foundry, then enable **Brazier** under **Game Settings → Manage Modules** for the V14 world.
-4. Look for the flame button near the Foundry sidebar (or a fixed lower-right launcher if your theme doesn't expose its normal tab strip). Alternatively press **Alt+B**. Each player has their own button.
+4. Look for the fixed flame button in the lower-right corner of the world. It stays outside sidebar containers so collapsed sidebars cannot hide it. Alternatively press **Alt+B**. Each player has their own button.
 5. As the Storyteller, select **New Tree** and **Tree Settings** to assign users, award points, and set tree visibility. GM sees all trees. Players see only the trees they're explicitly allowed to see.
 
 ### Four sections
@@ -111,3 +111,10 @@ The interface uses matte charcoal, restrained copper/bronze accents, small side 
 - Shortened the module synopsis to “Brazier Flame Management”.
 - Added an explicit Foundry 14.369 compatibility declaration. The previous release omitted `compatibility.verified`, leaving the compatibility badge without a declared target.
 - Preserved all existing runtime code and assets. Validation remains offline QA and public API review; no live Foundry installation was tested.
+
+### Changes in v0.1.4
+
+- Retains the application template wrapper so New Tree, section tabs, and other delegated controls receive clicks.
+- Keeps an independent floating flame launcher outside hidden/replaced sidebar containers, using an SVG icon that does not depend on the Font Awesome font.
+- Replaces the browser fixture with the real Handlebars template and adds physical-click regression coverage for section tabs, New Tree, Add Talent and Tree Settings.
+- Offline tests still use a simulated Foundry host; actual Foundry operation has not been tested by the publishing agent.
