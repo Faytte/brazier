@@ -15,7 +15,7 @@ for js in (R/'scripts').glob('*.mjs'):
 css=(R/'styles/brazier.css').read_text()
 for file in re.findall(r'url\(["\']?(\.\./assets/[^)"\']+)',css):
  assert (R/'styles'/file).is_file(),file
-for asset in (R/'assets').glob('*.svg'):
+for asset in (R/'assets').rglob('*.svg'):
  root=ET.parse(asset).getroot();assert root.tag.endswith('svg'),asset
  body=asset.read_text().lower()
  assert not any(term in body for term in ['<script','onload=','javascript:','<foreignobject']),asset
@@ -28,5 +28,5 @@ assert len(re.findall(r'{{#unless\s+',hbs))==len(re.findall(r'{{/unless}}',hbs))
 assert 'https://' not in (R/'templates/window.hbs').read_text(),'No remote script dependencies in template'
 assert (R/'scripts/main.mjs').read_text().count('Hooks.once("ready"')==1
 assert 'root:true' not in (R/'scripts/app.mjs').read_text(),'Controls require the retained template wrapper'
-assert any((R/'assets').glob('*.svg'))
+assert any((R/'assets').rglob('*.svg'))
 print('Brazier manifest/templates/SVG/assets/import static audit: PASSED')

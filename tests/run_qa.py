@@ -15,13 +15,14 @@ def run(args):
 for src in sorted((ROOT/'scripts').glob('*.mjs')):
     run(['node','--check',str(src.relative_to(ROOT))])
 coverage=run(['node','--experimental-test-coverage','--test',
-              'tests/model.test.mjs','tests/model_robust.test.mjs','tests/store.test.mjs'])
+              'tests/model.test.mjs','tests/model_robust.test.mjs','tests/store.test.mjs','tests/catalog.test.mjs'])
 # Coverage thresholds based on measured baseline, rather than a claimed absolute number
 # of passing test cases. Real Foundry E2E is excluded from this metric.
 thresholds={
   'app.mjs': (50,45),
   'model.mjs': (95,90),
   'store.mjs': (95,70),
+  'catalog.mjs': (95,80),
 }
 for file,(min_lines,min_branches) in thresholds.items():
     match=re.search(rf'^[#ℹ]?\s*{re.escape(file)}\s*\|\s*([\d.]+)\s*\|\s*([\d.]+)',coverage,re.MULTILINE)

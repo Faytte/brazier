@@ -35,9 +35,10 @@ window.__users=[{id:'gm',name:'GM',isGM:true,active:true},{id:'alice',name:'Alic
 window.__users.get=function(id){return this.find(x=>x.id===id)};
 window.__users.has=function(id){return this.some(x=>x.id===id)};
 window.game={user:window.__users[0], users:window.__users, journal:{
-  filter(cb){return window.__docs.filter(d=>window.game.user.isGM || ((d.ownership?.[window.game.user.id]??0)>=2)).filter(cb)},
+  filter(cb){return window.__docs.filter(d=>window.game.user.isGM || ((d.ownership?.[window.game.user.id]??d.ownership?.default??0)>=2)).filter(cb)},
   [Symbol.iterator](){return window.__docs[Symbol.iterator]()}
 }, messages:{contents:[]}, modules:new Map([['brazier',{}]]),keybindings:{register(){}}};
+window.game.system={id:'pf2e'};window.game.items=[];window.game.actors=[];window.game.packs=[];
 window.ui={notifications:{info(){},warn(msg){window.__errors.push('NOTICE: '+msg)},error(msg){window.__errors.push('ERROR: '+msg)}}};
 window.Hooks={events:{},once(name,cb){(this.events[name]??=[]).push(cb)},on(name,cb){(this.events[name]??=[]).push(cb)}};
 window.ChatMessage={getSpeaker(){return{}},async create(){return{}}};
@@ -45,12 +46,24 @@ window.JournalEntry=class {
   constructor(data){this.id='j'+(window.__docs.length+1);this.name=data.name;this.flags=structuredClone(data.flags);this.ownership=structuredClone(data.ownership)}
   static async create(data){const doc=new JournalEntry(data);window.__docs.push(doc);return doc}
   getFlag(scope,key){return this.flags?.[scope]?.[key]}
-  testUserPermission(user,perm){return user.isGM || (this.ownership?.[user.id]??0)>=2}
+  testUserPermission(user,perm){return user.isGM || (this.ownership?.[user.id]??this.ownership?.default??0)>=2}
   async update(data){this.name=data.name??this.name;this.ownership=data.ownership??this.ownership;
     for(const [key,val] of Object.entries(data))if(key.startsWith('flags.')){
        const [,scope,flag]=key.split('.');this.flags[scope]??={};this.flags[scope][flag]=structuredClone(val)}return this}
   async delete(){window.__docs.splice(window.__docs.indexOf(this),1)}
 };
+window.Item=class extends JournalEntry {
+  constructor(data){super(data);this.id='item'+(game.items.length+1);this.type=data.type;this.img=data.img;this.system=structuredClone(data.system);this.documentName='Item';this.sheet={render:async()=>{}};}
+  static async create(data){const item=new Item(data);game.items.push(item);return item;}
+  isOfType(type){return this.type===type;}
+  async update(data){await super.update(data);for(const [key,value] of Object.entries(data)){
+    if(key==='img')this.img=value;
+    if(key.startsWith('system.')){const parts=key.split('.');let target=this;for(const part of parts.slice(0,-1))target=target[part]??={};target[parts.at(-1)]=structuredClone(value);}
+  }return this;}
+};
+window.__source=new Item({name:'Healing Potion',type:'consumable',img:'',ownership:{default:2},flags:{},system:{level:{value:1},category:'potion',traits:{rarity:'common',value:['healing']},description:{value:'<p>Restore health.</p><section class="secret">GM ONLY</section>'}}});
+window.fromUuid=async(uuid)=>uuid==='Compendium.pf2e.equipment-srd.Item.potion'?__source:null;
+game.packs=[{documentName:'Item',collection:'pf2e.equipment-srd',visible:true,metadata:{label:'PF2E Equipment'},getIndex:async()=>[{_id:'potion',name:'Healing Potion',type:'consumable',system:__source.system}]}];
 window.foundry={applications:{api:{
   ApplicationV2:class {
     constructor(options={}){this.options=options;this.rendered=false;this.element=document.createElement('div');this.element.className='brazier-window';this.element.style.width='1160px';this.element.style.height='750px';document.body.appendChild(this.element)}
@@ -71,8 +84,10 @@ def dataurl(source):
     return 'data:text/javascript;base64,'+base64.b64encode(source.encode('utf-8')).decode('ascii')
 model_url=dataurl((ROOT/'scripts/model.mjs').read_text())
 store_url=dataurl((ROOT/'scripts/store.mjs').read_text().replace('./model.mjs',model_url))
-app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url))
-main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./app.mjs',app_url).replace('./store.mjs',store_url))
+catalog_url=dataurl((ROOT/'scripts/catalog.mjs').read_text().replace('./model.mjs',model_url))
+catalog_ui_url=dataurl((ROOT/'scripts/catalog-ui.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url))
+app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url).replace('./catalog-ui.mjs',catalog_ui_url))
+main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./app.mjs',app_url).replace('./store.mjs',store_url).replace('./catalog.mjs',catalog_url))
 with sync_playwright() as playwright:
     # Use Playwright's installed Chromium by default, or an explicit system browser.
     browser=playwright.chromium.launch(executable_path=os.environ.get('BRAZIER_CHROMIUM_PATH'),headless=True,args=['--no-sandbox'])
@@ -239,8 +254,41 @@ with sync_playwright() as playwright:
     }''',app_url)
     for value,title in [('boons','Benison Boons'),('curio','Curio'),('caravan','Caravan')]:
       page.locator(f'[data-act="tab"][data-value="{value}"]').click()
-      page.locator('.brazier-coming-soon h2').filter(has_text=title).wait_for()
+      page.locator('.brazier-root h2').filter(has_text='Consumables' if value=='boons' else title).first.wait_for()
       assert page.evaluate('window.__regressionApp.tab')==value
+    page.locator('[data-act="tab"][data-value="curio"]').click()
+    page.locator('[data-cat-act="new-curio"]').click()
+    page.locator('[data-cat-field="curio.name"]').fill('Moon Relic')
+    page.locator('[data-cat-field="curio.description"]').fill('SECRET CURIO DETAILS')
+    page.locator('[data-cat-act="add-gift"]').click()
+    page.locator('[data-cat-field="gift.name"]').fill('Moon Gift')
+    page.locator('[data-cat-field="gift.description"]').fill('PRIVATE GIFT EFFECT')
+    page.locator('[data-cat-field="curio.users"]').check()
+    page.locator('[data-cat-act="save-curio"]').click()
+    page.wait_for_function('()=>game.items.length===1')
+    item_id=page.evaluate('game.items[0].id')
+    page.locator('[data-cat-field="curio.name"]').fill('Moon Relic Updated')
+    page.locator('[data-cat-act="save-curio"]').click()
+    page.wait_for_function('()=>game.items[0].name==="Moon Relic Updated"')
+    assert page.evaluate('game.items.length')==1 and page.evaluate('game.items[0].id')==item_id
+    page.locator('[data-cat-act="browse-gifts"]').click()
+    page.locator('[data-cat-act="load-items"]').click()
+    page.locator('[data-cat-act="choose-gift"]').click()
+    assert page.locator('[data-cat-field="gift.name"]').input_value()=='Healing Potion'
+    assert 'GM ONLY' not in page.locator('[data-cat-field="gift.description"]').input_value()
+    page.locator('[data-act="tab"][data-value="boons"]').click()
+    page.locator('[data-cat-act="load-items"]').click()
+    page.locator('[data-cat-act="add-consumable"]').click()
+    page.locator('[data-cat-field="boons.count"]').fill('3')
+    page.locator('[data-cat-act="save-boon-count"]').click()
+    page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.boons?.consumableCount===3)')
+    assert page.locator('.brazier-curated-list').inner_text().count('Healing Potion')==1
+    for section in ['runes','memories']:
+      page.locator(f'[data-cat-act="boon-section"][data-value="{section}"]').click()
+      page.locator('[data-cat-field="boons.optionName"]').fill('Test '+section)
+      page.locator('[data-cat-act="add-boon-option"]').click()
+      page.locator('.brazier-curated-list').filter(has_text='Test '+section).wait_for()
+    print('Curio creation/update, gift picker, secret stripping, consumable selection/count and Benison sections: PASSED')
     page.locator('[data-act="tab"][data-value="trees"]').click()
     page.locator('[data-act="new-tree"]').click()
     page.wait_for_function('(before)=>__docs.filter(d=>d.getFlag("brazier","data")?.kind==="master").length===before+1',arg=baseline)
