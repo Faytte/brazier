@@ -1,4 +1,4 @@
-# Brazier — Flame Management (0.1.4)
+# Brazier — Flame Management (0.1.5)
 
 **Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
@@ -15,7 +15,7 @@ For manual installation:
 1. **Back up your Foundry world.** This module creates Journal Entries to store trees and access-limited projections.
 2. Extract the release ZIP contents into a folder named `brazier` so that `module.json` is located inside your Foundry user data directory at `Data/modules/brazier/module.json`. The folder name must be `brazier`.
 3. Restart Foundry, then enable **Brazier** under **Game Settings → Manage Modules** for the V14 world.
-4. Look for the fixed flame button in the lower-right corner of the world. It stays outside sidebar containers so collapsed sidebars cannot hide it. Alternatively press **Alt+B**. Each player has their own button.
+4. Select **Token Controls** in the left-hand scene toolbar, then click the **Brazier flame** tool. Foundry renders and positions this standard tool alongside the other token tools. Alternatively press **Alt+B**. Each player has their own button.
 5. As the Storyteller, select **New Tree** and **Tree Settings** to assign users, award points, and set tree visibility. GM sees all trees. Players see only the trees they're explicitly allowed to see.
 
 ### Four sections
@@ -118,3 +118,9 @@ The interface uses matte charcoal, restrained copper/bronze accents, small side 
 - Keeps an independent floating flame launcher outside hidden/replaced sidebar containers, using an SVG icon that does not depend on the Font Awesome font.
 - Replaces the browser fixture with the real Handlebars template and adds physical-click regression coverage for section tabs, New Tree, Add Talent and Tree Settings.
 - Offline tests still use a simulated Foundry host; actual Foundry operation has not been tested by the publishing agent.
+
+### Changes in v0.1.5
+
+- Registers the Brazier flame as a native button tool under Token Controls using Foundry’s `getSceneControlButtons` hook. Removes the floating launcher and its custom positioning/styles. Available to GMs and players; Alt+B remains available.
+- Makes locked talent symbols fully opaque so connecting lines do not show through them.
+- Adds offline regression checks for native tool registration/opening, existing tool preservation, player visibility, repeat registration, and talent opacity.
