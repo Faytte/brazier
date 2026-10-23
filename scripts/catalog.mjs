@@ -6,6 +6,8 @@ const gm=()=>{if(!game.user.isGM)throw new Error("Only the Storyteller can chang
 const docs=()=>game.journal.filter(doc=>data(doc));
 const readable=doc=>doc.testUserPermission(game.user,"OBSERVER");
 const privateOwner={default:0};
+// Ownership must replace the mapping, rather than recursively retain old users.
+const setOwnership=(doc,ownership)=>doc.update({ownership},{diff:false,recursive:false});
 const queues=new Map();
 function serial(key,fn){const next=(queues.get(key)??Promise.resolve()).catch(()=>{}).then(fn);queues.set(key,next);void next.finally(()=>{if(queues.get(key)===next)queues.delete(key);}).catch(()=>{});return next;}
 export const escapeHTML=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
@@ -43,8 +45,7 @@ export async function saveCurio(input){
     if(current&&current.updatedAt!==c.updatedAt)throw new Error("Curio changed; reopen it before saving.");
     if(!current&&c.updatedAt!==0)throw new Error("Curio master no longer exists.");
     // Revoke stale access before changing secrets; a later failure leaves details closed.
-    for(const p of docs().filter(d=>data(d).kind==="curio-detail"&&data(d).curioId===c.id))await p.update({ownership:privateOwner});
-    for(const item of curioItems(c.id))await item.update({ownership:privateOwner});
+    await revokeCurio(c.id);
     c.users=c.users.filter(id=>game.users.get(id)&&!game.users.get(id).isGM);
     c.updatedAt=Math.max(Date.now(),(current?.updatedAt??0)+1);
     const body={kind:"curio-master",curio:c};
@@ -57,8 +58,12 @@ export async function saveCurio(input){
 async function upsertJournal(kind,id,name,ownership,payload){
   const doc=docs().find(d=>data(d).kind===kind&&data(d).curioId===id);
   const value={kind,curioId:id,...payload};
-  if(doc)return doc.update({name,ownership,[`flags.${MODULE_ID}.${flag}`]:value});
+  if(doc){await doc.update({name,[`flags.${MODULE_ID}.${flag}`]:value});return setOwnership(doc,ownership);}
   return JournalEntry.create({name,ownership,flags:{[MODULE_ID]:{[flag]:value}}});
+}
+async function revokeCurio(id){
+  for(const p of docs().filter(d=>data(d).kind==="curio-detail"&&data(d).curioId===id))await setOwnership(p,privateOwner);
+  for(const item of curioItems(id))await setOwnership(item,privateOwner);
 }
 async function publishCurio(c){
   const ownership={default:0,...Object.fromEntries(c.users.map(id=>[id,2]))};
@@ -71,13 +76,13 @@ async function publishCurio(c){
     flags:{[MODULE_ID]:{curioId:c.id,curioRevision:c.updatedAt}}};
   const existing=curioItems(c.id);
   if(existing.length>1)throw new Error("Multiple world items share this Curio ID. Remove the extra template before synchronizing.");
-  if(existing[0])await existing[0].update({name:source.name,img:source.img,ownership,"system.description.value":source.system.description.value,[`flags.${MODULE_ID}.curioRevision`]:c.updatedAt});
+  if(existing[0]){await existing[0].update({name:source.name,img:source.img,"system.description.value":source.system.description.value,[`flags.${MODULE_ID}.curioRevision`]:c.updatedAt});await setOwnership(existing[0],ownership);}
   else await Item.create(source);
   // Existing distributed copies keep their own inventory state and authored mechanics.
   // Only copies carrying this exact provenance marker receive catalog text/art updates.
   for(const actor of game.actors??[])for(const item of actor.items??[])if(itemMatches(item,c.id))await item.update({name:source.name,img:source.img,"system.description.value":source.system.description.value,[`flags.${MODULE_ID}.curioRevision`]:c.updatedAt});
 }
-export async function syncCurio(id){gm();return serial(id,async()=>{const doc=master(id);if(!doc)throw new Error("Curio not found.");await publishCurio(data(doc).curio);});}
+export async function syncCurio(id){gm();return serial(id,async()=>{const doc=master(id);if(!doc)throw new Error("Curio not found.");await revokeCurio(id);await publishCurio(data(doc).curio);});}
 export async function refreshCatalog(){gm();for(const doc of docs().filter(d=>data(d).kind==="curio-master"))await syncCurio(data(doc).curio.id);}
 export function curioWorldItem(id){return game.user.isGM?curioItems(id)[0]??null:null;}
 
