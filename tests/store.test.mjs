@@ -185,3 +185,12 @@ assert.equal(outcomes[1].status,'fulfilled');
 assert.equal(allDocs.length,0,'delete race leaves no orphan projections');
 
 console.log('Brazier mock-Foundry store/permission integration tests: PASSED');
+// GM player perspective uses the same restricted projection and validates the recipient.
+const perspectiveDoc=await makeTree('Perspective Tree');const perspectiveTree=clone(perspectiveDoc.getFlag('brazier','data').tree);
+perspectiveTree.users=['alice'];perspectiveTree.shared.points=2;await saveTree(perspectiveTree);
+assert.equal(availableTrees(users[1]).length,1);assert.equal(availableTrees(users[2]).length,0);
+await assert.rejects(spendPoint(perspectiveTree.id,perspectiveTree.nodes[0].id,'bob'),/assigned/);
+await spendPoint(perspectiveTree.id,perspectiveTree.nodes[0].id,'alice');
+assert.equal(availableTrees(users[1])[0].progress.points,1);
+game.user=users[2];assert.equal(availableTrees(users[1]).length,0,'player cannot override perspective to another player');game.user=users[0];
+await deleteTree(perspectiveTree.id);

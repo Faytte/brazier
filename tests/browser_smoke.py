@@ -61,9 +61,11 @@ window.Item=class extends JournalEntry {
     if(key.startsWith('system.')){const parts=key.split('.');let target=this;for(const part of parts.slice(0,-1))target=target[part]??={};target[parts.at(-1)]=structuredClone(value);}
   }return this;}
 };
-window.__source=new Item({name:'Healing Potion',type:'consumable',img:'',ownership:{default:2},flags:{},system:{level:{value:1},category:'potion',traits:{rarity:'common',value:['healing']},description:{value:'<p>Restore health.</p><section class="secret">GM ONLY</section>'}}});
+window.__source=new Item({name:'Healing Potion',type:'consumable',img:'',ownership:{default:2},flags:{},system:{level:{value:1},category:'potion',traits:{rarity:'common',value:['healing','magical']},description:{value:'<p>Restore health.</p><section class="secret">GM ONLY</section>'}}});
 window.fromUuid=async(uuid)=>uuid==='Compendium.pf2e.equipment-srd.Item.potion'?__source:null;
-game.packs=[{documentName:'Item',collection:'pf2e.equipment-srd',visible:true,metadata:{label:'PF2E Equipment'},getIndex:async()=>[{_id:'potion',name:'Healing Potion',type:'consumable',system:__source.system}]}];
+window.__rune=new Item({name:'Flaming',type:'equipment',img:'',ownership:{default:2},flags:{},system:{usage:{value:'etched-onto-a-weapon'},level:{value:8},traits:{rarity:'common',value:['fire','magical']},description:{value:'Fire rune'}}});
+const potionUuid='Compendium.pf2e.equipment-srd.Item.potion';window.fromUuid=async(uuid)=>uuid===potionUuid?__source:uuid==='Compendium.pf2e.equipment-srd.Item.XszNvxnymWYRaoTp'?__rune:null;
+game.packs=[{documentName:'Item',collection:'pf2e.equipment-srd',visible:true,metadata:{label:'PF2E Equipment'},getIndex:async()=>[{_id:'potion',name:'Healing Potion',type:'consumable',system:__source.system},{_id:'XszNvxnymWYRaoTp',name:'Flaming',type:'equipment',system:__rune.system},{_id:'fundamental',name:'Weapon Potency +1',type:'equipment',system:{usage:{value:'etched-onto-a-weapon'},level:{value:2},traits:{value:['magical']}}}]}];
 window.foundry={applications:{api:{
   ApplicationV2:class {
     constructor(options={}){this.options=options;this.rendered=false;this.element=document.createElement('div');this.element.className='brazier-window';this.element.style.width='1160px';this.element.style.height='750px';document.body.appendChild(this.element)}
@@ -84,10 +86,12 @@ def dataurl(source):
     return 'data:text/javascript;base64,'+base64.b64encode(source.encode('utf-8')).decode('ascii')
 model_url=dataurl((ROOT/'scripts/model.mjs').read_text())
 store_url=dataurl((ROOT/'scripts/store.mjs').read_text().replace('./model.mjs',model_url))
-catalog_url=dataurl((ROOT/'scripts/catalog.mjs').read_text().replace('./model.mjs',model_url))
-catalog_ui_url=dataurl((ROOT/'scripts/catalog-ui.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url))
-app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url).replace('./catalog-ui.mjs',catalog_ui_url))
-main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./app.mjs',app_url).replace('./store.mjs',store_url).replace('./catalog.mjs',catalog_url))
+rune_url=dataurl((ROOT/'scripts/rune-reference.mjs').read_text())
+perspective_url=dataurl((ROOT/'scripts/perspective.mjs').read_text())
+catalog_url=dataurl((ROOT/'scripts/catalog.mjs').read_text().replace('./model.mjs',model_url).replace('./rune-reference.mjs',rune_url))
+catalog_ui_url=dataurl((ROOT/'scripts/catalog-ui.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url))
+app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url).replace('./catalog-ui.mjs',catalog_ui_url).replace('./perspective.mjs',perspective_url))
+main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./app.mjs',app_url).replace('./store.mjs',store_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url))
 with sync_playwright() as playwright:
     # Use Playwright's installed Chromium by default, or an explicit system browser.
     browser=playwright.chromium.launch(executable_path=os.environ.get('BRAZIER_CHROMIUM_PATH'),headless=True,args=['--no-sandbox'])
@@ -273,22 +277,42 @@ with sync_playwright() as playwright:
     assert page.evaluate('game.items.length')==1 and page.evaluate('game.items[0].id')==item_id
     page.locator('[data-cat-act="browse-gifts"]').click()
     page.locator('[data-cat-act="load-items"]').click()
-    page.locator('[data-cat-act="choose-gift"]').click()
+    page.locator('[data-cat-act="choose-gift"][data-value$=".potion"]').click()
     assert page.locator('[data-cat-field="gift.name"]').input_value()=='Healing Potion'
     assert 'GM ONLY' not in page.locator('[data-cat-field="gift.description"]').input_value()
     page.locator('[data-act="tab"][data-value="boons"]').click()
+    assert page.locator('[data-cat-act="load-items"]').count()==0
+    page.locator('[data-cat-act="catalog-mode"][data-value="manage"]').click()
     page.locator('[data-cat-act="load-items"]').click()
+    assert page.locator('.brazier-trait-option[data-trait-name="fire"]').count()==0
+    page.locator('[data-cat-field="filter.traits"][data-trait="healing"]').check()
+    page.locator('[data-cat-field="filter.traits"][data-trait="magical"]').check()
+    assert page.locator('[data-cat-field="filter.traits"]:checked').count()==2
+    page.locator('[data-cat-act="clear-traits"]').click()
     page.locator('[data-cat-act="add-consumable"]').click()
     page.locator('[data-cat-field="boons.count"]').fill('3')
     page.locator('[data-cat-act="save-boon-count"]').click()
     page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.boons?.consumableCount===3)')
     assert page.locator('.brazier-curated-list').inner_text().count('Healing Potion')==1
-    for section in ['runes','memories']:
+    for section in ['memories']:
       page.locator(f'[data-cat-act="boon-section"][data-value="{section}"]').click()
       page.locator('[data-cat-field="boons.optionName"]').fill('Test '+section)
       page.locator('[data-cat-act="add-boon-option"]').click()
       page.locator('.brazier-curated-list').filter(has_text='Test '+section).wait_for()
-    print('Curio creation/update, gift picker, secret stripping, consumable selection/count and Benison sections: PASSED')
+    page.locator('[data-cat-act="boon-section"][data-value="runes"]').click()
+    assert page.locator('.brazier-search-results').inner_text().count('Flaming')==1
+    assert 'Weapon Potency' not in page.locator('.brazier-search-results').inner_text()
+    page.locator('[data-cat-act="add-rune"]').click()
+    page.locator('[data-cat-act="catalog-mode"][data-value="overview"]').click()
+    assert page.locator('[data-cat-act="load-items"]').count()==0
+    page.locator('[data-view-as]').select_option('alice')
+    assert page.locator('[data-cat-act="catalog-mode"]').count()==0
+    page.locator('[data-cat-act="toggle-choice"]').click()
+    page.locator('[data-cat-act="save-choices"]').click()
+    page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.choices?.runes?.length===1)')
+    page.locator('[data-act="return-storyteller"]').click()
+    assert page.locator('[data-cat-act="catalog-mode"]').count()==2
+    print('Catalog overview/management, property rune exclusion, player perspective and saved player choices: PASSED')
     page.locator('[data-act="tab"][data-value="trees"]').click()
     page.locator('[data-act="new-tree"]').click()
     page.wait_for_function('(before)=>__docs.filter(d=>d.getFlag("brazier","data")?.kind==="master").length===before+1',arg=baseline)
