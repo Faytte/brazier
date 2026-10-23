@@ -25,7 +25,8 @@ m=json.loads(raw)
 assert m['id']=='brazier' and m['version']==local['version']
 assert m['manifest']==permanent
 assert m['download']==f'{base}/releases/download/v{m["version"]}/brazier-v{m["version"]}.zip'
-assert 'verified' not in m['compatibility']
+assert m['compatibility']==local['compatibility']
+assert m['description']==local['description']
 pinned=get(f'{base}/releases/download/v{m["version"]}/module.json')
 assert pinned==raw
 blob=get(m['download'])
