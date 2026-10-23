@@ -2,10 +2,10 @@
   "id": "brazier",
   "title": "Brazier",
   "description": "Brazier Flame Management",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "authors": [
     {
-      "name": "Brazier \u2014 Personal Campaign Module"
+      "name": "Brazier — Personal Campaign Module"
     }
   ],
   "compatibility": {
@@ -20,5 +20,16 @@
   ],
   "url": "https://github.com/Faytte/brazier",
   "manifest": "https://github.com/Faytte/brazier/releases/latest/download/module.json",
-  "download": "https://github.com/Faytte/brazier/releases/download/v0.2.1/brazier-v0.2.1.zip"
+  "download": "https://github.com/Faytte/brazier/releases/download/v0.3.0/brazier-v0.3.0.zip",
+  "relationships": {
+    "recommends": [
+      {
+        "id": "pf2e-dailies",
+        "type": "module",
+        "compatibility": {
+          "minimum": "4.23.1"
+        }
+      }
+    ]
+  }
 }

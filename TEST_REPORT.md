@@ -1,3 +1,13 @@
+# v0.3.0 Benison consumable preparation — October 23, 2026
+
+Adds player checkboxes, cap/re-enable behavior, assigned-character Amount calculation, configurable level offsets and quantities, the deferred Additive family filter, and PF2e Dailies preparation grants with scoped cleanup. Consumable eligibility follows the consumable trait on consumables, bombs and ammunition.
+
+Node tests cover default/custom boundaries, invalid configuration, source preservation, native temporary flags, separate purchased stock, cleanup scope, permission/assignment checks, duplicate preparation, consumed items, partial creation and receipt-write retries, and Dailies registration. New floors: quantity model 100% lines / 90% branches, Dailies adapter 90% / 80%. Existing coverage floors remain. Browser tests add physical checkbox cap/re-enable interactions, tier configuration and Amount checks to the existing template, tree, catalog and perspective suite.
+
+Local syntax, Node coverage and static audit pass. Full headless Chromium gate runs in GitHub Actions before release; the local environment cannot launch its browser. The host, Item/Actor documents, ownership and Dailies APIs in these tests are simulated. Source review is pinned to PF2E 8.6.1 and PF2e Dailies 4.23.1; see docs/research/benison-preparation.md. No live Foundry installation or actual PF2E/Dailies preparation was tested. Automatic rune etching and Curio rule-element effects remain outside this build.
+
+---
+
 # v0.2.1 catalog modes, multi-traits, property runes and perspective — October 23, 2026
 
 Adds overview/management modes, independently filtered consumable/property-rune pools, searchable multi-trait controls, Storyteller-only player perspective and saved player selections. Property rune identity metadata is derived from pinned PF2E 8.6.1 equipment data; unrelated applied equipment and fundamental runes are excluded.

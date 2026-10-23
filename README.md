@@ -1,4 +1,4 @@
-# Brazier — Flame Management (0.2.1)
+# Brazier — Flame Management (0.3.0)
 
 **Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
@@ -21,8 +21,8 @@ For manual installation:
 ### Four sections
 
 - **Skill Trees**: implemented.
-- **Benison Boons**: placeholder.
-- **Curio**: placeholder.
+- **Benison Boons**: curated choices and daily consumable preparation.
+- **Curio**: public catalog, permission-restricted gifts and linked inventory items.
 - **Caravan**: placeholder.
 
 ### Tree editor (Storyteller)
@@ -59,18 +59,29 @@ Skill trees never rely on Scene Notes, tokens, maps, characters, or a particular
 - **Save Curio & Sync Item** creates one PF2E equipment item in the world Items directory, or updates the existing item by its stable Brazier Curio ID. You can drag that item to a character. Later saves update names, descriptions and art on marked actor copies while preserving inventory state and manually authored rule elements. A copied Curio item remains linked to its catalog entry; duplicate templates with the same marker are reported rather than guessed at. Use Retry Item Sync after a partial failure.
 - **Gifts currently store text and source links.** Importing an automated effect does not automatically transfer its rule elements, actions or resources to the bearer. These require a future PF2E mechanics adapter; the source sheet remains available for reference.
 - Every player can see Curio names/icons. Descriptions/gifts live in a separate restricted journal document; the GM master is private. The generated world item is shared only with selected players. Giving it to an actor also shares its contents with that actor's owners. Revoking catalog access cannot erase a previously received item copy or knowledge already seen.
-- **Benison Boons** has Consumables, Runes, and Memories and Shrouds tabs. Consumables supports indexed search across accessible installed Item compendiums, filtered to PF2E consumable documents, with name, level range, category, rarity, trait and source filters. Add/remove entries in the curated list; duplicates are ignored.
-- Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selections are now saved per player; item distribution is not automated. Runes has a property/accessory rune catalog with its own choice count. Memories and Shrouds supports named options. No rune etching or item granting occurs from these lists.
+- **Benison Boons** has Consumables, Runes, and Memories and Shrouds tabs. Consumables supports indexed search across accessible installed Item compendiums, filtered to physical items carrying the consumable trait (including bombs and ammunition, excluding wands), with name, level range, category, rarity, trait and source filters. Add/remove entries in the curated list; duplicates are ignored.
+- Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selections are saved per player; daily consumable grants are described below. Runes has a property/accessory rune catalog with its own choice count. Memories and Shrouds supports named options. Runes and memories remain choices only; automatic rune etching is not implemented.
 - Catalog state uses world Journal Entries under the separate `brazier.catalog` flag. Curio public summaries contain only ID/name/icon/art; restricted details are separate. Curio item provenance uses `brazier.curioId`. Existing tree documents are unchanged. Research for future adapters is in [docs/research](docs/research/README.md).
+
+### Daily Benison consumables (v0.3.0)
+
+- Enable **PF2e Dailies** alongside Brazier. This adapter targets PF2E 8.6.1 and Dailies 4.23.1 on Foundry 14.369. Other Brazier features remain available without Dailies.
+- Assign each player a PF2E character in Foundry User Configuration. Each Benison character must be assigned to exactly one player account. Player selections are per account; level and inventory come from that assigned character. The character must be owned by the account preparing it.
+- Players check consumables under **Current Options** and click **Save Choices**. Unchecked boxes grey out at the global choice limit and become available again when a selection is removed. The **Amount** column updates for checked items. An active Storyteller processes player save requests; Storyteller **View as** saves directly for that player.
+- Storyteller **Consumable quantity bands** configures two minimum offsets relative to character level and all three quantities. Defaults: offset ≥ −1 gives 1; offset −4 through −2 gives 2; anything below −4 gives 3. At character level 15: item levels 14, 13, 11 and 10 give 1, 2, 2 and 3 respectively. Minimums must descend; amounts are positive integers.
+- Complete preparation in **PF2e Dailies** to grant the saved selections. Quantities are recalculated from current character/source levels and current settings. Each grant is a separate marked temporary inventory stack; purchased items are not merged or changed. No alchemical infused trait is added to ordinary gifts.
+- PF2E removes native temporary items during **Rest for the Night**, as it does daily alchemical items. The Dailies rest callback resets Benison's cycle; the next preparation grants fresh choices and also cleans any remaining Brazier-marked stacks on that character. Unrelated inventory is preserved. Transferring a temporary item does not make it permanent; native PF2E rest cleanup still applies to its recipient.
+- Repeating preparation within the same cycle does not refill consumed gifts. Stable item IDs and a persistent actor receipt prevent retries from creating duplicate stacks; a partial write can be retried. Changed or unavailable saved choices produce an actionable error rather than a substitute. Restore valid choices before retrying preparation. Changes after successful preparation apply after the next rest.
+- Implementation and upstream lifecycle references: [daily preparation research](docs/research/benison-preparation.md). Automated checks use mocked documents and a mock browser host; no live Foundry installation was tested.
 
 ### Catalog modes and player perspective (v0.2.1)
 
 - Consumables and Runes open in **Overview** with current options and the global choice count. **Manage Options** exposes search, additions and removal. The sections keep independent filters.
-- Traits are searchable checkbox chips with readable labels, item counts and **all/any** matching. They come from actual items in the current consumable/rune pool. Rare valid traits remain available: PF2E 8.6.1 includes aura on Magnetic Suit/Wind Ocarina and additive1 on Toothwort Extract.
+- Traits are searchable checkbox chips with readable labels, item counts and **all/any** matching. They come from actual items in the current consumable/rune pool. Only traits on eligible consumable items appear. Additive is one filter family matching additive/additive1/additive2/additive3, including Toothwort Extract; original source traits remain intact.
 - Property runes support weapon, armor, and item/accessory targets. Fundamental potency, striking, resilient and reinforcing runes are excluded. Identity metadata is pinned to PF2E 8.6.1. Regenerate it with `tools/build_rune_reference.py` against the upstream equipment source directory when updating PF2E; review the resulting categories.
 - The Storyteller-only **View as** selector spans every section, shows the selected player's published tree/Curio access, hides management, and offers **Return to Storyteller**. It never changes Foundry's logged-in user or session. External Foundry sheets still use the logged-in account.
 - Tree purchases and **Save Choices** in this mode make real changes for the selected player. Players receive choice controls without perspective or management controls. Player requests use server-authored message identity; the primary active Storyteller validates them. Durable receipts prevent an acknowledged request replay from overwriting later selections. Requests wait if no Storyteller is online.
-- Choices persist until changed; no daily reset, item distribution, or rune etching is performed. Consumables and Runes enforce separate global counts. Memories and Shrouds permits selecting its named options without a separately configured limit.
+- Choices persist until changed and are reused for each daily consumable preparation; automatic rune etching is not performed. Consumables and Runes enforce separate global counts. Memories and Shrouds permits selecting its named options without a separately configured limit.
 
 ### Important limitations
 
