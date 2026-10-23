@@ -1,6 +1,6 @@
-# Brazier — Foundry VTT V14 module (0.1.2)
+# Brazier — Flame Management (0.1.3)
 
-A standalone, system-independent skill-tree application for the Velde and Fae Wyld worlds. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
+**Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
 ## Install
 
@@ -8,7 +8,7 @@ For Molten Hosting, open your hosted Foundry Setup screen, choose **Add-on Modul
 
 `https://github.com/Faytte/brazier/releases/latest/download/module.json`
 
-The manifest points to the matching versioned release ZIP. This address becomes available once the GitHub release is published. Foundry's manifest and download fields follow the [official module format](https://foundryvtt.com/article/module-development/).
+The manifest points to the matching versioned release ZIP. Foundry's manifest and download fields follow the [official module format](https://foundryvtt.com/article/module-development/).
 
 For manual installation:
 
@@ -59,10 +59,10 @@ The module never relies on Scene Notes, tokens, maps, characters, or a particula
 - The Storyteller can delete trees. No undo history yet; export backups often.
 - Requests generate private whisper chat messages. Hidden future nodes stay out of player projections, but an authorized player can reveal/redistribute the content they are allowed to see (as with other Foundry documents).
 - The native Journal sidebar still shows authorized projection Journal Entries. This is a deliberate tradeoff for using core document ownership permissions securely without depending on a third-party server or socket extension.
-- The permanent manifest URL above supports installation and future updates after release publication. `compatibility.verified` is intentionally omitted because live V14 testing has not yet been done.
+- The permanent manifest URL above supports installation and future updates after release publication. The manifest declares Foundry **14.369** as its compatibility target. This is based on API review and offline QA; live Foundry operation has not been tested.
 - Icons use Foundry's built-in Font Awesome library; five original vector background presets ship in `assets/`. Custom images can be chosen through the Foundry FilePicker.
 
-### Developer checks (v0.1.2)
+### Developer checks
 
 From the unpacked **source archive** (Node 22+, Python 3.10+, Playwright with Chromium to run the browser simulation):
 
@@ -74,9 +74,9 @@ python tests/run_qa.py
 
 See [RELEASING.md](RELEASING.md) for repository organization, packaging, and future release steps.
 
-These checks pass for v0.1.2, including 3,478 deterministic randomized/malformed-input assertions, simulated document permission checks for several users, concurrent purchase serialization, repeated-request prevention, access revocation, a headless Chromium UI exercise (real pointer events, pan, zoom, editor persistence and launcher hook), import/manifest/static asset checks, and JS syntax.
+The offline QA suite covers including 3,478 deterministic randomized/malformed-input assertions, simulated document permission checks for several users, concurrent purchase serialization, repeated-request prevention, access revocation, a headless Chromium UI exercise (real pointer events, pan, zoom, editor persistence and launcher hook), import/manifest/static asset checks, and JS syntax.
 
-**Important boundary:** the browser test runs the *real Brazier scripts and stylesheet*, but supplies a simulated Foundry host. No licensed V14 server/client was available in this build environment. No claim of successful live Foundry integration, validated ownership enforcement by the actual Foundry server, or zero-defect release is made. The `compatibility.verified` field remains deliberately unset. See `TEST_REPORT.md` in source and install archives.
+**Important boundary:** the browser test runs the *real Brazier scripts and stylesheet*, but supplies a simulated Foundry host. No licensed V14 server/client was available in this build environment. No claim of successful live Foundry integration, validated ownership enforcement by the actual Foundry server, or zero-defect release is made. The manifest compatibility target is 14.369; this does not represent a completed live Foundry test. See `TEST_REPORT.md` in source and install archives.
 
 ### Changes in v0.1.1
 
@@ -105,3 +105,9 @@ The interface uses matte charcoal, restrained copper/bronze accents, small side 
 - Added DCC-style coverage measurement and thresholds using Node 22's built-in V8 coverage, without requiring Vitest or a network install.
 
 **Not tested:** proprietary Foundry runtime `DataModel` schemas and real multiplayer networking, which require the licensed application or its `common/` code; this package has never been installed into Foundry. DCC's real integration/E2E tiers were studied, but cannot be executed as authentic Foundry tests in this environment. ApplicationV2 template compilation and Foundry server permission filtering are consequently **not certified**. The browser test uses real Brazier JS/CSS on a mocked host and is not a substitute for Foundry E2E.
+
+### Changes in v0.1.3
+
+- Shortened the module synopsis to “Brazier Flame Management”.
+- Added an explicit Foundry 14.369 compatibility declaration. The previous release omitted `compatibility.verified`, leaving the compatibility badge without a declared target.
+- Preserved all existing runtime code and assets. Validation remains offline QA and public API review; no live Foundry installation was tested.

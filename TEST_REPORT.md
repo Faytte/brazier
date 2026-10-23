@@ -1,3 +1,25 @@
+# v0.1.3 metadata update — October 23, 2026
+
+Target: Foundry VTT **14.369**, the user’s installed version.
+Changes: synopsis is exactly **Brazier Flame Management**; `compatibility.minimum`
+remains 14 and `compatibility.verified` now declares 14.369. This compatibility
+declaration is based on public API review and offline regression QA. It must not
+be interpreted as a completed live Foundry test. The prior release omitted
+`verified`; the user reported a red compatibility badge despite running V14.
+The exact badge tooltip was not captured, so its cause has not been reproduced
+in a live installation.
+
+No production scripts, CSS, templates or SVG assets were changed. The existing
+package audit and download verifier now validate the declared metadata.
+The full offline QA gate runs in GitHub Actions for this release. Local browser
+execution remains unavailable because of the macOS sandbox; runtime behavior
+in an actual Foundry server/client remains untested.
+
+The v0.1.2 reports below are historical records and describe that version’s
+metadata, including its then-omitted verified field.
+
+---
+
 # Publication validation — October 23, 2026
 
 The supplied offline QA suite was rerun for GitHub publication. Production JavaScript,

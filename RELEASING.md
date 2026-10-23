@@ -18,7 +18,8 @@ python tests/run_qa.py
 
 To use an installed Chromium browser, set `BRAZIER_CHROMIUM_PATH` to its executable.
 The browser suite supplies a mocked Foundry host; passing it does not certify
-live Foundry behavior. Keep `compatibility.verified` absent until live validation.
+live Foundry behavior. Keep the compatibility declaration and QA report accurate. The current declared target
+is Foundry 14.369, based on API review and offline QA; live runtime testing is still outstanding.
 
 ## Release
 
