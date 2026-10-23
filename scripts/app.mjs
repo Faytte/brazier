@@ -1,5 +1,6 @@
 import {ICONS, BACKGROUNDS, LINES, VISIBILITIES, freshNode, uid, clone, rankOf, progressFor, canBuy, validateTree} from "./model.mjs";
 import {availableTrees, makeTree, saveTree, deleteTree, requestPurchase, spendPoint} from "./store.mjs";
+import {catalogHTML,catalogClick,catalogChange} from "./catalog-ui.mjs";
 
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
 const h = s => String(s ?? "").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"})[c]);
@@ -55,6 +56,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       pointIconClass:ICONS[t?.pointIcon] || ICONS.star,
       currency:t?.currency,background:t?.background||"plain",
       placeholderTitle:{boons:"Benison Boons",curio:"Curio",caravan:"Caravan"}[this.tab]
+      ,catalogContent:["curio","boons"].includes(this.tab)?catalogHTML(this):"",catalogTab:["curio","boons"].includes(this.tab)
     };
   }
   async _onRender(context,options){
@@ -67,6 +69,9 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       root.dataset.brazierBound="1";
       root.addEventListener("click",e=>this._onClick(e));
       root.addEventListener("change",e=>this._onChange(e).catch(err=>this._warn(err)));
+      root.addEventListener("input",e=>{
+        if(e.target.dataset.catField)catalogChange(this,e).catch(err=>this._warn(err));
+      });
       root.addEventListener("keydown",e=>{
         if (e.key === "Escape" && this.linking) {this.linking=false;this.linkSource=null;this._renderGraph();}
       });
@@ -85,6 +90,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     finally{this._busy=false;await this._refresh();}
   }
   async _onClick(event){
+    try {if(await catalogClick(this,event))return;}catch(error){this._warn(error);await this._refresh();return;}
     const el=event.target.closest("[data-act]");if(!el)return;
     const act=el.dataset.act;const val=el.dataset.value;
     try {
@@ -159,6 +165,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     this.nodeId=id;this.panel="node";this._renderGraph();
   }
   async _onChange(e){
+    if(await catalogChange(this,e))return;
     if(e.target.id==="brazier-import"&&e.target.files?.length) {try {await this._import(e.target.files[0]);} finally {e.target.value="";}return;}
     const field=e.target.dataset.field;if(!field||!game.user.isGM)return;
     const val=e.target.type==="checkbox"?e.target.checked:e.target.value;
