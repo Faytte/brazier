@@ -9,8 +9,11 @@ mock store/permission tests, coverage floors and package audit pass. Coverage is
 55.29% / 49.64% for app, 96.64% / 92.81% for model and 100% / 72.28% for store
 (line / branch). The local browser test is blocked by the macOS execution sandbox:
 Chromium exits at MachPortRendezvous `bootstrap_check_in` with permission denied.
-The complete suite is configured in GitHub Actions; its run result must be checked
-before publishing a release. No live Foundry installation was tested.
+The complete suite subsequently **PASSED in GitHub Actions**, including the Chromium
+DOM/CSS/pan/zoom/editor simulation and release packaging:
+https://github.com/Faytte/brazier/actions/runs/39998140934 .
+GitHub runner/action deprecation notices in that run were addressed by pinning
+current official action revisions and the Ubuntu 24.04 runner for future runs. No live Foundry installation was tested.
 
 Tooling fixes: coverage parsing accepts both Node reporter prefixes; browser tests
 use Playwright Chromium by default with optional `BRAZIER_CHROMIUM_PATH` override.
