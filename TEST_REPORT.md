@@ -1,3 +1,31 @@
+# v0.1.4 interaction fixes — October 23, 2026
+
+User-observed defects on Foundry 14.369: Alt+B opens Brazier, but the flame
+launcher is absent and application buttons do not respond.
+
+The app requested a root template part while event binding required its outer
+`.brazier-root` wrapper. Root-part child replacement can omit that wrapper. The
+previous browser fixture always provided the wrapper and did not compile the
+actual template, so it could not detect this integration mismatch. The app now
+uses a regular template part. The launcher stays directly under document.body
+rather than a sidebar container that core layouts or themes can hide; its icon
+is inline SVG and does not rely on a font glyph.
+
+The browser suite now compiles the actual shipped Handlebars template using a
+vendored MIT-licensed Handlebars browser bundle (test-only). It models root-part
+child replacement and exercises real section-tab, New Tree, Add Talent and Tree
+Settings clicks, along with hidden/replaced sidebar launcher visibility and the
+existing pan/zoom, drag, permissions and XSS tests.
+
+Local syntax, model/store tests, coverage floors and static package audit pass.
+The full offline gate runs in GitHub Actions before publication because this
+local environment cannot launch Chromium. These tests
+still simulate Foundry document APIs and the application host; no live Foundry
+installation was tested by the publishing agent. The user’s findings demonstrate
+why the earlier offline results did not establish live-runtime correctness.
+
+---
+
 # v0.1.3 metadata update — October 23, 2026
 
 Target: Foundry VTT **14.369**, the user’s installed version.
