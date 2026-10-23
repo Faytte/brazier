@@ -86,7 +86,7 @@ export async function catalogClick(app,event){
           const Picker=foundry.applications.apps.FilePicker;
           await new Picker({type:"image",callback:async path=>{if(assetPath(path)){captured.iconUrl=path;await app._refresh();}}}).render({force:true});break;
         }
-        case "load-items":app.catalogLoading=true;clearItemIndex();try{app.catalogIndex=await itemIndex();}finally{app.catalogLoading=false;}break;
+        case "load-items":app.catalogLoading=true;await app._refresh();clearItemIndex();try{app.catalogIndex=await itemIndex();}finally{app.catalogLoading=false;}break;
         case "search-items":app.itemPage=0;break;
         case "item-prev":app.itemPage=Math.max(0,(app.itemPage??0)-1);break;
         case "item-next":app.itemPage=(app.itemPage??0)+1;break;

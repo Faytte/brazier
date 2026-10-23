@@ -90,7 +90,10 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     finally{this._busy=false;await this._refresh();}
   }
   async _onClick(event){
-    try {if(await catalogClick(this,event))return;}catch(error){this._warn(error);await this._refresh();return;}
+    if(event.target.closest("[data-cat-act]")?.dataset.catAct){
+      try{await catalogClick(this,event);}catch(error){this._warn(error);await this._refresh();}
+      return;
+    }
     const el=event.target.closest("[data-act]");if(!el)return;
     const act=el.dataset.act;const val=el.dataset.value;
     try {
