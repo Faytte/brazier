@@ -108,3 +108,34 @@
 .brazier-empty h2,.brazier-coming-soon h2{font:24px Georgia,serif;color:#cabca9;}
 .brazier-empty p,.brazier-coming-soon p{margin:0;max-width:400px;font-size:12px;}
 @media(max-width:800px){.brazier-topbar{gap:5px;padding:0 6px}.brazier-brand{font-size:13px;padding-right:6px}.brazier-tabs button{padding:0 6px;font-size:11px}.brazier-storyteller{display:none}.brazier-rail{width:115px;min-width:115px;max-width:115px}.brazier-overlay{width:min(242px,54%)}.brazier-points span{display:none}}
+
+/* Catalogs share the native window and delegated controls with skill trees. */
+.brazier-catalog,.brazier-boons{display:flex;flex:1;min-height:0;overflow:hidden;}
+.brazier-boons{flex-direction:column;}
+.brazier-catalog-list{width:230px;flex-shrink:0;padding:14px;overflow:auto;background:var(--bz-panel);border-right:1px solid var(--bz-edge);}
+.brazier-catalog-list h2{margin-bottom:12px;}
+.brazier-catalog-list>button{width:100%;margin-bottom:8px;}
+.brazier-catalog-choice{display:flex;align-items:center;text-align:left;gap:10px;padding:10px!important;}
+.brazier-catalog-choice span{flex:1;overflow-wrap:anywhere;}
+.brazier-catalog-choice.active,.brazier-subtabs button.active{border-color:var(--bz-accent);background:#322a23;}
+.brazier-catalog-choice img,.brazier-section-heading h2 img{width:36px;height:36px;object-fit:cover;border-radius:4px;}
+.brazier-catalog-body{flex:1;min-width:0;min-height:0;padding:20px;overflow:auto;}
+.brazier-catalog-body h3{margin:16px 0 10px;}
+.brazier-catalog-body fieldset{border:1px solid var(--bz-edge);border-radius:5px;margin:15px 0;padding:14px;min-width:0;}
+.brazier-catalog-body legend{padding:0 7px;color:var(--bz-bright);}
+.brazier-catalog-body button{padding:7px 10px;margin:3px;}
+.brazier-section-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.brazier-section-heading h2{display:flex;align-items:center;gap:10px;}
+.brazier-section-heading>div{display:flex;flex-wrap:wrap;}
+.brazier-prose{white-space:pre-wrap;overflow-wrap:anywhere;margin:12px 0;}
+.brazier-gift{background:var(--bz-panel);border:1px solid var(--bz-edge);padding:14px;margin:12px 0;border-radius:5px;}
+.brazier-locked{padding:24px;color:var(--bz-muted);border:1px dashed var(--bz-edge);}
+.brazier-subtabs{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--bz-edge);flex-shrink:0;}
+.brazier-subtabs button{padding:9px 16px;}
+.brazier-filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.brazier-curated-list article,.brazier-search-results article{display:flex;align-items:center;gap:8px;padding:9px;border-bottom:1px solid var(--bz-edge);}
+.brazier-curated-list article>span,.brazier-search-results article>span{flex:1;min-width:0;overflow-wrap:anywhere;}
+.brazier-search-results small{display:block;color:var(--bz-muted);}
+.brazier-search-results{max-height:300px;overflow:auto;margin-top:12px;}
+.brazier-pagination{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:8px;}
+@media(max-width:800px){.brazier-catalog-list{width:170px;}.brazier-filters{grid-template-columns:repeat(2,minmax(0,1fr));}.brazier-catalog-body{padding:12px;}}
