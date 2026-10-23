@@ -7,20 +7,17 @@ function openBrazier(){
   app.render({force:true}).catch(err=>{console.error("Brazier",err);ui.notifications.error(`Brazier: ${err.message}`);});
 }
 function mountLauncher(){
-  // Prefer the native sidebar navigation strip; use an unobtrusive fixed launcher if the current skin moves it.
-  const anchor=document.querySelector("#sidebar-tabs") || document.querySelector("#sidebar .tabs") ||
-    document.querySelector(".sidebar-tabs") || document.querySelector("[data-application-part='tabs']#sidebar-tabs");
+  // Stay outside sidebar containers, which core layouts and themes may hide or replace.
   let btn=document.getElementById("brazier-launcher");
   if (!btn) {
     btn=document.createElement("button");btn.type="button";btn.id="brazier-launcher";
     btn.className="brazier-launcher";btn.title="Open Brazier (Alt+B)";
     btn.setAttribute("aria-label","Open Brazier");
-    btn.innerHTML='<i class="fa-solid fa-fire-flame-curved" aria-hidden="true"></i>';
+    btn.innerHTML='<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false"><path fill="currentColor" d="M13 2c1 5-4 6-2 10 1-1 2-2 2-4 4 3 6 6 6 9a7 7 0 0 1-14 0c0-4 3-6 4-9-1 5 0 5 1 6-1-5 5-7 3-12Z"/></svg>';
     btn.addEventListener("click",openBrazier);
   }
-  // Sidebar skins frequently render or replace their navigation after ready.
-  if(anchor) {if(btn.parentNode!==anchor)anchor.appendChild(btn);btn.classList.add("in-sidebar");}
-  else {if(btn.parentNode!==document.body)document.body.appendChild(btn);btn.classList.remove("in-sidebar");}
+  if(btn.parentNode!==document.body)document.body.appendChild(btn);
+  btn.classList.remove("in-sidebar");
 }
 Hooks.once("init",()=>{
   game.keybindings.register("brazier","open",{
