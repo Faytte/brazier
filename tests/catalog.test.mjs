@@ -105,3 +105,6 @@ await assert.rejects(catalog.addRune('invalid'),/property/);
 let chatRequest;globalThis.ChatMessage={getSpeaker(){return {};},async create(value){chatRequest=value;}};
 game.user=users[1];await catalog.requestBoonChoices('consumables',[b.consumables[0].uuid]);assert.deepEqual(chatRequest.whisper,['gm']);assert.equal(chatRequest.flags.brazier.boonRequest.userId,undefined);
 game.user=users[0];
+const zeroAllowance=catalog.boonCatalog();zeroAllowance.consumableCount=0;await catalog.saveBoons(zeroAllowance);
+await assert.rejects(catalog.setBoonChoices('consumables',[b.consumables[0].uuid],'alice'),/Too many/);
+const restoredAllowance=catalog.boonCatalog();restoredAllowance.consumableCount=3;await catalog.saveBoons(restoredAllowance);
