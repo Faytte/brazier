@@ -1,0 +1,55 @@
+<div class="brazier-root">
+  <header class="brazier-topbar">
+    <span class="brazier-brand"><i class="fa-solid fa-fire-flame-curved"></i> BRAZIER</span>
+    <nav class="brazier-tabs" aria-label="Brazier sections">
+      <button type="button" data-act="tab" data-value="trees" class="{{#if treesTab}}active{{/if}}">Skill Trees</button>
+      <button type="button" data-act="tab" data-value="boons" class="{{#if boonsTab}}active{{/if}}">Benison Boons</button>
+      <button type="button" data-act="tab" data-value="curio" class="{{#if curioTab}}active{{/if}}">Curio</button>
+      <button type="button" data-act="tab" data-value="caravan" class="{{#if caravanTab}}active{{/if}}">Caravan</button>
+    </nav>
+    {{#if gm}}<span class="brazier-storyteller" title="Storyteller controls enabled">STORYTELLER</span>{{/if}}
+  </header>
+  {{#if treesTab}}
+  <section class="brazier-workspace">
+    <aside class="brazier-rail {{#if railCollapsed}}collapsed{{/if}}">
+      <div class="brazier-rail-head"><span>TREES</span><button type="button" data-act="rail" title="Collapse or expand the tree list"><i class="fa-solid fa-bars"></i></button></div>
+      <div class="brazier-tree-list">
+        {{#each trees}}
+        <button type="button" class="brazier-tree-choice {{#if active}}active{{/if}}" data-act="choose-tree" data-value="{{id}}" title="{{name}}"><i class="fa-solid fa-diagram-project"></i><span>{{name}}</span></button>
+        {{/each}}
+      </div>
+      {{#if gm}}<button type="button" class="brazier-new-tree" data-act="new-tree" title="Create a new tree"><i class="fa-solid fa-plus"></i><span>New Tree</span></button>{{/if}}
+    </aside>
+    <section class="brazier-main">
+      {{#if hasTree}}
+        <div class="brazier-canvasbar">
+          <div class="brazier-tree-heading"><strong>{{currentName}}</strong><small>{{currentDescription}}</small></div>
+          <div class="brazier-canvas-actions"><span class="brazier-points"><i class="fa-solid {{pointIconClass}}"></i> {{pointCount}} <span>{{currency}}</span></span>
+            {{#if gm}}<button type="button" data-act="edit-toggle" title="Toggle Storyteller editing"><i class="fa-solid fa-pen-to-square"></i> {{#if editing}}Done Editing{{else}}Edit Tree{{/if}}</button>{{/if}}
+            <button type="button" data-act="fit" title="Recenter tree"><i class="fa-solid fa-crosshairs"></i></button>
+          </div>
+        </div>
+        {{#if editing}}
+        <div class="brazier-editor-bar">
+          <button type="button" data-act="add-node"><i class="fa-solid fa-plus"></i> Add Talent</button>
+          <button type="button" data-act="link-mode" title="Click a prerequisite node, then click its dependent node"><i class="fa-solid fa-link"></i> Connect</button>
+          <button type="button" data-act="tree-settings"><i class="fa-solid fa-sliders"></i> Tree Settings</button>
+          <button type="button" data-act="export"><i class="fa-solid fa-file-export"></i> Export</button>
+          <button type="button" data-act="import"><i class="fa-solid fa-file-import"></i> Import</button>
+          <span class="brazier-toolhint">Drag nodes to arrange • drag empty space to pan</span>
+          <input type="file" id="brazier-import" accept="application/json,.json" hidden>
+        </div>{{/if}}
+        <div class="brazier-stage" data-bg="{{background}}" tabindex="0" aria-label="Skill tree: drag to pan, scroll to zoom">
+          <div class="brazier-world"><svg class="brazier-edges" viewBox="-2500 -2500 5000 5000" xmlns="http://www.w3.org/2000/svg"></svg><div class="brazier-nodes"></div></div>
+          <div class="brazier-zoom"><button type="button" data-act="zoomout" aria-label="Zoom out"><i class="fa-solid fa-minus"></i></button><span class="brazier-zoomvalue">100%</span><button type="button" data-act="zoomin" aria-label="Zoom in"><i class="fa-solid fa-plus"></i></button><button type="button" data-act="fit" title="Center view"><i class="fa-solid fa-expand"></i></button></div>
+          <div class="brazier-overlay"></div>
+        </div>
+      {{else}}
+        <div class="brazier-empty"><i class="fa-solid fa-diagram-project"></i><h2>No skill trees available</h2><p>{{#if gm}}Create a tree using the New Tree button.{{else}}Your Storyteller has not assigned you a skill tree yet.{{/if}}</p></div>
+      {{/if}}
+    </section>
+  </section>
+  {{else}}
+    <section class="brazier-coming-soon"><i class="fa-solid fa-fire-flame-curved"></i><h2>{{placeholderTitle}}</h2><p>This section is reserved for a future Brazier update.</p></section>
+  {{/if}}
+</div>
