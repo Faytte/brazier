@@ -109,6 +109,5 @@
 .brazier-empty p,.brazier-coming-soon p{margin:0;max-width:400px;font-size:12px;}
 .brazier-launcher{display:flex;align-items:center;justify-content:center;width:33px;height:33px;color:#ce9e79;background:#1e1c1b;border:1px solid #80614a;border-radius:3px;cursor:pointer;}
 .brazier-launcher:hover{color:#f4d9b4;border-color:#c59a71;background:#30251e;}
-.brazier-launcher.in-sidebar{width:36px;height:36px;margin:3px;border:0;background:transparent;}
-.brazier-launcher:not(.in-sidebar){position:fixed;right:12px;bottom:85px;z-index:80;box-shadow:0 3px 12px #0009;}
+.brazier-launcher{position:fixed;right:12px;bottom:85px;z-index:10000;pointer-events:auto;box-shadow:0 3px 12px #0009;}
 @media(max-width:800px){.brazier-topbar{gap:5px;padding:0 6px}.brazier-brand{font-size:13px;padding-right:6px}.brazier-tabs button{padding:0 6px;font-size:11px}.brazier-storyteller{display:none}.brazier-rail{width:115px;min-width:115px;max-width:115px}.brazier-overlay{width:min(242px,54%)}.brazier-points span{display:none}}
