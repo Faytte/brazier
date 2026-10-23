@@ -12,14 +12,18 @@ function serialTreeWrite(treeId, operation) {
 }
 const dataOf = document => document.getFlag(MODULE_ID, FLAG);
 export const masters = () => game.user.isGM ? game.journal.filter(j=>dataOf(j)?.kind === "master") : [];
-export const playerProjections = () => game.journal.filter(j=> {
+export const playerProjections = (user=game.user) => {
+  if(!game.user.isGM)user=game.user;
+  return game.journal.filter(j=> {
   const d=dataOf(j);
-  return d?.kind === "projection" && d.userId === game.user.id &&
-    j.testUserPermission(game.user,"OBSERVER");
-});
-export function availableTrees() {
-  if (game.user.isGM) return masters().map(doc=>({...clone(dataOf(doc).tree), _docId:doc.id}));
-  return playerProjections().map(doc=>clone(dataOf(doc).view)).filter(Boolean);
+  return d?.kind === "projection" && d.userId === user.id &&
+    j.testUserPermission(user,"OBSERVER");
+  });
+};
+export function availableTrees(user=game.user) {
+  if(!game.user.isGM)user=game.user;
+  if (game.user.isGM&&user.isGM) return masters().map(doc=>({...clone(dataOf(doc).tree), _docId:doc.id}));
+  return playerProjections(user).map(doc=>clone(dataOf(doc).view)).filter(Boolean);
 }
 export function masterById(id) {
   if (!game.user.isGM) return null;

@@ -1,4 +1,5 @@
 import {MODULE_ID, ICONS, uid, clone} from "./model.mjs";
+import {PROPERTY_RUNE_IDS,FUNDAMENTAL_RUNE_IDS} from "./rune-reference.mjs";
 
 const flag="catalog";
 const data=doc=>doc.getFlag(MODULE_ID,flag);
@@ -23,11 +24,12 @@ export function validateCurio(c){
   if(JSON.stringify(c).length>1_500_000)throw new Error("Curio exceeds the document size limit.");
   return c;
 }
-export function availableCurios(){
-  if(game.user.isGM)return docs().filter(d=>data(d).kind==="curio-master").map(d=>clone(data(d).curio));
-  return docs().filter(d=>data(d).kind==="curio-public"&&readable(d)).map(d=>{
+export function availableCurios(user=game.user){
+  if(!game.user.isGM)user=game.user;
+  if(game.user.isGM&&user.isGM)return docs().filter(d=>data(d).kind==="curio-master").map(d=>clone(data(d).curio));
+  return docs().filter(d=>data(d).kind==="curio-public"&&d.testUserPermission(user,"OBSERVER")).map(d=>{
     const summary=clone(data(d).summary);
-    const detail=docs().find(p=>data(p).kind==="curio-detail"&&data(p).curioId===summary.id&&readable(p));
+    const detail=docs().find(p=>data(p).kind==="curio-detail"&&data(p).curioId===summary.id&&p.testUserPermission(user,"OBSERVER"));
     return detail?{...summary,...clone(data(detail).detail)}:{...summary,locked:true};
   });
 }
@@ -88,12 +90,13 @@ export function curioWorldItem(id){return game.user.isGM?curioItems(id)[0]??null
 
 export function boonCatalog(){
   const doc=docs().find(d=>data(d).kind==="boons"&&readable(d));
-  return clone(doc?data(doc).boons:{schema:1,updatedAt:0,consumableCount:1,consumables:[],runes:[],memories:[]});
+  return {runeCount:1,...clone(doc?data(doc).boons:{schema:1,updatedAt:0,consumableCount:1,consumables:[],runes:[],memories:[]})};
 }
 export async function saveBoons(input){
   gm();const b=clone(input);
   return serial("boons",async()=>{
     if(b.schema!==1||!Number.isSafeInteger(b.consumableCount)||b.consumableCount<0||b.consumableCount>9999||!["consumables","runes","memories"].every(k=>Array.isArray(b[k])&&b[k].length<=5000))throw new Error("Invalid boon catalog or consumable count.");
+    if(!Number.isSafeInteger(b.runeCount??1)||b.runeCount<0||b.runeCount>9999)throw new Error("Invalid rune choice count.");
     for(const key of ["consumables","runes","memories"])for(const entry of b[key])if(typeof entry.uuid!=="string"||typeof entry.name!=="string"||entry.name.length>200)throw new Error("Invalid boon entry.");
     const doc=docs().find(d=>data(d).kind==="boons");
     if((doc?data(doc).boons.updatedAt:0)!==b.updatedAt)throw new Error("Boons changed; refresh before saving.");
@@ -111,6 +114,61 @@ export async function addConsumable(uuid){
   b.consumables.push({uuid,name:item.name,img:assetPath(item.img),level:item.system.level.value,category:item.system.category,rarity:item.system.traits.rarity});
   return saveBoons(b);
 }
+export function runeKind(item){
+  if(item.type!=="equipment")return "";
+  const id=item.uuid?.split(".").at(-1),official=item.uuid?.startsWith("Compendium.pf2e.equipment-srd.");
+  if(official&&FUNDAMENTAL_RUNE_IDS.includes(id))return "";
+  if(official&&PROPERTY_RUNE_IDS[id])return PROPERTY_RUNE_IDS[id];
+  const usage=item.usage??item.system?.usage?.value??"",name=(item.slug??item.system?.slug??item.name??"").toLowerCase();
+  if(/potency|striking|resilien|reinforcing/.test(name))return "";
+  if(!usage.startsWith("etched-"))return "";
+  return usage.includes("armor")?"armor":usage.includes("weapon")||usage.includes("clan-dagger")?"weapon":"";
+}
+export async function addRune(uuid){
+  gm();const item=await fromUuid(uuid),kind=item&&runeKind(item);
+  if(!kind)throw new Error("Choose a property or accessory rune; fundamental runes are excluded.");
+  const b=boonCatalog();if(b.runes.some(i=>i.uuid===uuid))return b;
+  b.runes.push({uuid,name:item.name,img:assetPath(item.img),level:item.system.level.value,category:kind,rarity:item.system.traits.rarity});return saveBoons(b);
+}
+export function boonChoices(user=game.user){
+  if(!game.user.isGM)user=game.user;
+  const doc=docs().find(d=>data(d).kind==="boon-choice"&&data(d).userId===user.id&&d.testUserPermission(user,"OBSERVER"));
+  return clone(doc?data(doc).choices:{consumables:[],runes:[],memories:[]});
+}
+export async function setBoonChoices(section,uuids,userId,requestId=null){
+  gm();return serial(`choice:${userId}`,async()=>{
+    const doc=docs().find(d=>data(d).kind==="boon-choice"&&data(d).userId===userId);
+    const requestIds=clone(doc?data(doc).requestIds??[]:[]);
+    if(requestId&&requestIds.includes(requestId))return boonChoices(game.users.get(userId));
+    const user=game.users.get(userId),b=boonCatalog();
+    if(!user||user.isGM||!["consumables","runes","memories"].includes(section)||!Array.isArray(uuids)||new Set(uuids).size!==uuids.length||uuids.some(id=>!b[section].some(i=>i.uuid===id)))throw new Error("Invalid player choices.");
+    const limit=section==="consumables"?b.consumableCount:section==="runes"?b.runeCount:b.memories.length;
+    if(uuids.length>limit)throw new Error("Too many choices for the current allowance.");
+    const choices=boonChoices(user);choices[section]=clone(uuids);
+    if(requestId){if(requestIds.length>=10000)throw new Error("Selection request history limit reached.");requestIds.push(requestId);}
+    const value={kind:"boon-choice",userId,choices,requestIds};
+    if(doc)await doc.update({[`flags.${MODULE_ID}.${flag}`]:value});
+    else await JournalEntry.create({name:`Brazier • ${user.name??userId} Choices`,ownership:{default:0,[userId]:2},flags:{[MODULE_ID]:{[flag]:value}}});
+    return choices;
+  });
+}
+export async function requestBoonChoices(section,uuids){
+  const gms=game.users.filter(u=>u.isGM).map(u=>u.id);
+  if(!gms.length)throw new Error("No Storyteller account exists.");
+  await ChatMessage.create({content:"Brazier boon selection request",whisper:gms,speaker:ChatMessage.getSpeaker(),flags:{[MODULE_ID]:{boonRequest:{section,uuids}}}});
+}
+export async function receiveBoonRequest(message){
+  if(!game.user.isGM||!game.user.active)return;
+  const primary=game.users.filter(u=>u.isGM&&u.active).sort((a,b)=>a.id.localeCompare(b.id))[0];
+  if(primary?.id!==game.user.id)return;
+  return serial("boon-requests",async()=>{
+    const r=message.getFlag(MODULE_ID,"boonRequest"),userId=message.author?.id??message.user?.id;
+    if(!r||message.getFlag(MODULE_ID,"boonProcessed")||!userId||game.users.get(userId)?.isGM)return;
+    try{await setBoonChoices(r.section,r.uuids,userId,message.id);}
+    catch(error){ui.notifications.warn(`Brazier selection rejected: ${error.message}`);}
+    await message.setFlag(MODULE_ID,"boonProcessed",true);
+  });
+}
 let indexPromise;
 export function clearItemIndex(){indexPromise=undefined;}
 export async function itemIndex(){
@@ -118,8 +176,8 @@ export async function itemIndex(){
   return indexPromise??=(async()=>{
     const packs=[...game.packs].filter(p=>p.documentName==="Item"&&p.visible!==false);
     const result=await Promise.allSettled(packs.map(async pack=>{
-      const index=await pack.getIndex({fields:["type","system.level.value","system.category","system.traits.value","system.traits.rarity"]});
-      return [...index].map(i=>({uuid:i.uuid||`Compendium.${pack.collection}.Item.${i._id}`,name:i.name,img:assetPath(i.img),type:i.type,level:i.system?.level?.value??0,category:i.system?.category??"",traits:i.system?.traits?.value??[],rarity:i.system?.traits?.rarity??"common",pack:pack.metadata.label||pack.collection}));
+      const index=await pack.getIndex({fields:["type","system.slug","system.usage.value","system.level.value","system.category","system.traits.value","system.traits.rarity"]});
+      return [...index].map(i=>({uuid:i.uuid||`Compendium.${pack.collection}.Item.${i._id}`,name:i.name,slug:i.system?.slug,img:assetPath(i.img),type:i.type,usage:i.system?.usage?.value??"",level:i.system?.level?.value??0,category:i.system?.category??"",traits:i.system?.traits?.value??[],rarity:i.system?.traits?.rarity??"common",pack:pack.metadata.label||pack.collection}));
     }));
     const failed=result.filter(r=>r.status==="rejected");
     if(failed.length){indexPromise=undefined;ui.notifications.warn(`Brazier: ${failed.length} item compendium(s) could not be indexed. Reload the catalog to retry.`);}
@@ -128,5 +186,6 @@ export async function itemIndex(){
 }
 export function filterItems(items,filters){
   const q=(filters.query||"").trim().toLocaleLowerCase();
-  return items.filter(i=>(!filters.type||i.type===filters.type)&&(!q||i.name.toLocaleLowerCase().includes(q))&&(!filters.category||i.category===filters.category)&&(!filters.rarity||i.rarity===filters.rarity)&&(!filters.pack||i.pack===filters.pack)&&(!filters.trait||i.traits.includes(filters.trait))&&i.level>=Number(filters.min||0)&&i.level<=Number(filters.max??30));
+  const selected=filters.traits??(filters.trait?[filters.trait]:[]);
+  return items.filter(i=>(!filters.type||i.type===filters.type)&&(!q||i.name.toLocaleLowerCase().includes(q))&&(!filters.category||i.category===filters.category)&&(!filters.rarity||i.rarity===filters.rarity)&&(!filters.pack||i.pack===filters.pack)&&(!selected.length||(filters.traitMode==="any"?selected.some(t=>i.traits.includes(t)):selected.every(t=>i.traits.includes(t))))&&i.level>=Number(filters.min||0)&&i.level<=Number(filters.max??30));
 }

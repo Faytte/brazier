@@ -1,5 +1,6 @@
 import {ICONS, BACKGROUNDS, LINES, VISIBILITIES, freshNode, uid, clone, rankOf, progressFor, canBuy, validateTree} from "./model.mjs";
 import {availableTrees, makeTree, saveTree, deleteTree, requestPurchase, spendPoint} from "./store.mjs";
+import {viewingAs,storyteller,setPerspective} from "./perspective.mjs";
 import {catalogHTML,catalogClick,catalogChange} from "./catalog-ui.mjs";
 
 const {ApplicationV2, HandlebarsApplicationMixin} = foundry.applications.api;
@@ -33,10 +34,12 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     this.zoom=1; this.pan={x:0,y:0}; this.linkSource=null; this.linking=false;
     this.previewUserId=null; this._busy=false; this._suppressClickUntil=0;
   }
-  get trees(){return availableTrees();}
+  get effectiveUser(){return viewingAs(this);}
+  get isStoryteller(){return storyteller(this);}
+  get trees(){return availableTrees(this.effectiveUser);}
   get tree(){return this.trees.find(t=>t.id===this.treeId) ?? null;}
   get viewingUser(){
-    if (!game.user.isGM) return game.user.id;
+    if (!this.isStoryteller) return this.effectiveUser.id;
     return game.users.get(this.previewUserId)?.id ?? game.users.find(u=>!u.isGM && (this.tree?.access==="all" || this.tree?.users?.includes(u.id)))?.id ?? game.user.id;
   }
   get progress(){
@@ -49,9 +52,9 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     if (!trees.some(t=>t.id===this.treeId)) {this.treeId=trees[0]?.id??null;this.nodeId=null;this.panel=null;}
     const t=this.tree;
     return {...context,
-      gm:game.user.isGM, trees:trees.map(item=>({id:item.id,name:item.name,active:item.id===this.treeId})),
+      gm:this.isStoryteller, canViewAs:game.user.isGM, viewAsActive:!this.isStoryteller&&game.user.isGM, viewAsName:this.effectiveUser.name, viewAsPlayers:game.users.filter(u=>!u.isGM).map(u=>({id:u.id,name:u.name,selected:u.id===this.viewAsUserId})), trees:trees.map(item=>({id:item.id,name:item.name,active:item.id===this.treeId})),
       treesTab:this.tab==="trees",boonsTab:this.tab==="boons",curioTab:this.tab==="curio",caravanTab:this.tab==="caravan",
-      railCollapsed:this.railCollapsed,hasTree:!!t, editing:game.user.isGM&&this.editing,
+      railCollapsed:this.railCollapsed,hasTree:!!t, editing:this.isStoryteller&&this.editing,
       currentName:t?.name, currentDescription:t?.description, pointCount:this.progress.points??0,
       pointIconClass:ICONS[t?.pointIcon] || ICONS.star,
       currency:t?.currency,background:t?.background||"plain",
@@ -81,7 +84,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
   async _refresh(){if(this.rendered) await this.render();}
   _warn(err){console.error("Brazier",err);ui.notifications.error(`Brazier: ${err.message??err}`);}
   async _commit(modifier){
-    if(!game.user.isGM || this._busy)return;
+    if(!this.isStoryteller || this._busy)return;
     const tree=this.tree;
     if(!tree)return;
     const copy=clone(tree);delete copy._docId;
@@ -98,15 +101,17 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     const act=el.dataset.act;const val=el.dataset.value;
     try {
       switch(act){
+        case "return-storyteller":setPerspective(this,"");await this._refresh();break;
         case "tab":this.tab=val;this.panel=null;await this._refresh();break;
         case "rail":this.railCollapsed=!this.railCollapsed;await this._refresh();break;
         case "choose-tree":this.treeId=val;this.nodeId=null;this.pan={x:0,y:0};this.zoom=1;this.panel=null;this.linking=false;await this._refresh();break;
         case "new-tree":{
+          if(!this.isStoryteller)return;
           const doc=await makeTree(`New Skill Tree ${this.trees.length+1}`);
           this.treeId=doc.getFlag("brazier","data").tree.id;
           this.editing=true;this.panel="settings";await this._refresh();break;
         }
-        case "edit-toggle":if(!game.user.isGM)return;this.editing=!this.editing;this.panel=null;this.linking=false;this.linkSource=null;await this._refresh();break;
+        case "edit-toggle":if(!this.isStoryteller)return;this.editing=!this.editing;this.panel=null;this.linking=false;this.linkSource=null;await this._refresh();break;
         case "add-node":await this._commit(t=>{const n=freshNode("New Talent",Math.round(-this.pan.x/this.zoom),Math.round(-this.pan.y/this.zoom));t.nodes.push(n);this.nodeId=n.id;this.panel="node";});break;
         case "link-mode":this.linking=!this.linking;this.linkSource=null;this.panel=null;this._renderGraph();break;
         case "tree-settings":this.panel="settings";this.nodeId=null;this._renderGraph();break;
@@ -119,7 +124,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
           const tree=this.tree;const node=tree?.nodes.find(n=>n.id===this.nodeId);if(!node)return;
           if(!window.confirm(`Spend ${node.cost} ${tree.currency} to unlock ${node.name}?`))return;
           if(game.user.isGM) {
-            const recipient=this.progressRecipient();
+            const recipient=!this.isStoryteller?this.effectiveUser.id:this.progressRecipient();
             await spendPoint(tree.id,node.id,recipient);
           } else await requestPurchase(tree.id,node.id);
           if(!game.user.isGM) ui.notifications.info("Upgrade requested. The Storyteller client processes valid requests when online.");
@@ -131,7 +136,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
           await this._commit(t=>{t.nodes=t.nodes.filter(n=>n.id!==id);t.nodes.forEach(n=>n.requires=n.requires.filter(r=>r!==id));delete t.shared.ranks[id];Object.values(t.personal).forEach(p=>delete p.ranks[id]);this.nodeId=null;this.panel=null;});break;
         }
         case "delete-tree":{
-          if(!game.user.isGM||!window.confirm(`Permanently delete '${this.tree?.name}' and its progression?`))return;
+          if(!this.isStoryteller||!window.confirm(`Permanently delete '${this.tree?.name}' and its progression?`))return;
           await deleteTree(this.treeId);this.treeId=null;this.panel=null;await this._refresh();break;
         }
         case "browse-background":await this._browseImage("tree.backgroundUrl");break;
@@ -146,7 +151,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
   }
   progressRecipient(){return this.tree.progression==="personal" ? this.viewingUser : (game.users.find(u=>!u.isGM && (this.tree.access==="all" || this.tree.users.includes(u.id)))?.id ?? game.user.id);}
   async _changePoints(delta){
-    if(!game.user.isGM)return;
+    if(!this.isStoryteller)return;
     const userId=this.viewingUser;
     await this._commit(t=>{
       const p=t.progression==="shared"?t.shared:(t.personal[userId]??={points:0,ranks:{}});
@@ -168,9 +173,10 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     this.nodeId=id;this.panel="node";this._renderGraph();
   }
   async _onChange(e){
+    if(e.target.hasAttribute?.("data-view-as")){setPerspective(this,e.target.value);await this._refresh();return;}
     if(await catalogChange(this,e))return;
     if(e.target.id==="brazier-import"&&e.target.files?.length) {try {await this._import(e.target.files[0]);} finally {e.target.value="";}return;}
-    const field=e.target.dataset.field;if(!field||!game.user.isGM)return;
+    const field=e.target.dataset.field;if(!field||!this.isStoryteller)return;
     const val=e.target.type==="checkbox"?e.target.checked:e.target.value;
     if(field==="preview"){this.previewUserId=val;await this._refresh();return;}
     const targetId=this.nodeId;
@@ -197,7 +203,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     });
   }
   async _browseImage(path){
-    if(!game.user.isGM)return;
+    if(!this.isStoryteller)return;
     const Picker=foundry.applications.apps.FilePicker;
     const picker=new Picker({type:"image",callback:async selected=>{
       if(!safeAsset(selected))return;
@@ -314,7 +320,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     const card=document.createElement("div");card.className="brazier-inspector";
     if(this.panel==="node"){
       const node=t.nodes.find(n=>n.id===this.nodeId);if(!node){this.panel=null;return;}
-      card.innerHTML=this.editing?this._editNodeHtml(t,node):this._viewNodeHtml(t,node);
+      card.innerHTML=this.isStoryteller&&this.editing?this._editNodeHtml(t,node):this._viewNodeHtml(t,node);
     } else if(this.panel==="settings"&&this.editing) card.innerHTML=this._settingsHtml(t);
     else return;
     overlay.appendChild(card);
@@ -328,7 +334,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       <dl><dt>Cost</dt><dd>${node.cost} ${h(t.currency)}</dd><dt>Rank</dt><dd>${rank} / ${node.maxRank}</dd></dl>
       ${req.length?`<div class="brazier-requisites"><b>Prerequisites</b>${req.map(n=>`<span><i class="fa-solid fa-link"></i> ${h(n)}</span>`).join("")}</div>`:""}
       ${rank>=node.maxRank?'<div class="brazier-owned">Fully unlocked</div>':
-        button("unlock", game.user.isGM?"Unlock Talent":"Spend Points",available?"class='brazier-primary'":"disabled title='Need points or prerequisites'")}
+        button("unlock", this.isStoryteller?"Unlock Talent":"Spend Points",available?"class='brazier-primary'":"disabled title='Need points or prerequisites'")}
       ${!game.user.isGM?'<small class="brazier-note">A Storyteller client validates and applies purchases.</small>':""}`;
   }
   _editNodeHtml(t,node){
@@ -364,13 +370,13 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       ${button("delete-tree",'<i class="fa-solid fa-trash"></i> Delete Entire Tree',"class='brazier-danger'")}`;
   }
   _export(){
-    if(!game.user.isGM||!this.tree)return;
+    if(!this.isStoryteller||!this.tree)return;
     const tree=clone(this.tree);delete tree._docId;
     const file=new Blob([JSON.stringify({format:"brazier-tree",version:1,tree},null,2)],{type:"application/json"});
     const url=URL.createObjectURL(file);const a=document.createElement("a");a.href=url;a.download=`brazier-${tree.name.toLowerCase().replace(/[^a-z0-9]+/g,"-")}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   }
   async _import(file){
-    if(!game.user.isGM)return;
+    if(!this.isStoryteller)return;
     if(file.size > 2_000_000) throw new Error("Tree export exceeds the 2 MB import limit.");
     const data=JSON.parse(await file.text());if(data.format!=="brazier-tree" || data.version!==1)throw new Error("Not a supported Brazier tree export.");
     const tree=clone(data.tree);tree.id=uid();tree.shared={points:0,ranks:{}};tree.personal={};tree.requestIds=[];

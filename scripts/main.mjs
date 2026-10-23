@@ -1,6 +1,6 @@
 import {BrazierApplication} from "./app.mjs";
 import {receiveRequest,processPendingRequests,refreshAll} from "./store.mjs";
-import {refreshCatalog} from "./catalog.mjs";
+import {refreshCatalog,receiveBoonRequest} from "./catalog.mjs";
 
 let app;
 function openBrazier(){
@@ -38,11 +38,12 @@ Hooks.once("ready",async()=>{
   });
   Hooks.on("createChatMessage",message=>{
     if(message.getFlag("brazier","request")) receiveRequest(message).catch(console.error);
+    if(message.getFlag("brazier","boonRequest"))receiveBoonRequest(message).catch(console.error);
   });
   if(game.user.isGM){
     try {await refreshAll();await processPendingRequests();
       const primary=game.users.filter(u=>u.isGM&&u.active).sort((a,b)=>a.id.localeCompare(b.id))[0];
-      if(primary?.id===game.user.id)await refreshCatalog();
+      if(primary?.id===game.user.id){await refreshCatalog();for(const message of game.messages?.contents??[])if(message.getFlag("brazier","boonRequest")&&!message.getFlag("brazier","boonProcessed"))await receiveBoonRequest(message);}
     }
     catch(error){console.error("Brazier: initial projection sync failed",error);}
   }
