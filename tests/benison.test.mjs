@@ -24,7 +24,7 @@ globalThis.ui={notifications:{error(){},warn(){}}};
 globalThis.fromUuid=async uuid=>sources.get(uuid);
 for(const [id,level] of [['a',14],['b',11],['c',10]]){
  const uuid=`Compendium.test.items.Item.${id}`,source={name:`Potion ${id}`,type:'consumable',folder:'old',ownership:{default:3},system:{quantity:50,level:{value:level},traits:{value:['consumable','magical']},uses:{max:2,value:0}}};
- sources.set(uuid,{...source,level,toObject:()=>clone(source)});catalog.consumables.push({uuid,name:source.name,level});choices.consumables.push(uuid);
+ sources.set(uuid,{...source,traits:new Set(source.system.traits.value),level,toObject:()=>clone(source)});catalog.consumables.push({uuid,name:source.name,level});choices.consumables.push(uuid);
 }
 // Catalog storage identifies the public boon document by its established kind.
 const purchased=itemDoc({_id:'purchased',name:'Purchased',system:{quantity:6},flags:{}});actor.items.push(purchased);

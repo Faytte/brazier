@@ -124,3 +124,6 @@ assert(benisonModel.isBenisonConsumable({type:'ammo',traits:['consumable']}));
 assert(!benisonModel.isBenisonConsumable({type:'consumable',traits:['wand']}));
 assert.equal(benisonModel.characterLevel(users[1]),15);
 assert.equal(benisonModel.characterLevel({character:null}),null);
+
+assert(benisonModel.isBenisonConsumable({type:'consumable',traits:new Set(['consumable'])}));
+assert.deepEqual(benisonModel.normalizedTraits({traits:new Set(['additive1','consumable'])}),['additive','consumable']);
