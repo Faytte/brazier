@@ -1,3 +1,27 @@
+# v0.1.5 native controls and opaque talents — October 23, 2026
+
+Uses Foundry’s documented V14 getSceneControlButtons hook to register a button
+under controls.tokens.tools. Foundry owns its rendering and placement. The
+standalone launcher, DOM insertion and custom positioning CSS are removed.
+The native tool is visible to players and GMs, opens the existing application
+and preserves Alt+B. No other scene controls or world data are modified.
+
+Locked talent symbols previously used opacity .65, making their backgrounds
+translucent. They now use opacity 1, preserving their gray styling and opaque
+backgrounds so connecting lines remain behind the discs.
+
+The offline browser suite checks native tool configuration, idempotent registration,
+preservation of other tools, GM/player visibility and opening the actual Brazier
+application. It checks computed opacity of locked and available talent symbols,
+alongside the existing real-template interaction and security tests. The host and
+scene-control renderer remain simulated; no live Foundry installation was tested
+by the publishing agent. The previous release’s final-commit CI run also passed:
+https://github.com/Faytte/brazier/actions/runs/40002888855
+
+API reference: https://foundryvtt.com/api/functions/hookEvents.getSceneControlButtons.html
+
+---
+
 # v0.1.4 interaction fixes — October 23, 2026
 
 User-observed defects on Foundry 14.369: Alt+B opens Brazier, but the flame
