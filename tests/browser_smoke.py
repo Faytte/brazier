@@ -51,18 +51,19 @@ window.JournalEntry=class {
        const [,scope,flag]=key.split('.');this.flags[scope]??={};this.flags[scope][flag]=structuredClone(val)}return this}
   async delete(){window.__docs.splice(window.__docs.indexOf(this),1)}
 };
-const fixture=`<div class="brazier-root">
-<header class="brazier-topbar"><span class="brazier-brand">BRAZIER</span><nav class="brazier-tabs"><button type="button" data-act="tab" data-value="trees">Skill Trees</button><button type="button" data-act="tab" data-value="boons">Benison Boons</button><button type="button" data-act="tab" data-value="curio">Curio</button><button type="button" data-act="tab" data-value="caravan">Caravan</button></nav></header>
-<section class="brazier-workspace"><aside class="brazier-rail"><button data-act="rail">TREES</button></aside>
-<section class="brazier-main"><div class="brazier-stage" data-bg="ember" tabindex="0">
-<div class="brazier-world"><svg class="brazier-edges" viewBox="-2500 -2500 5000 5000"></svg><div class="brazier-nodes"></div></div>
-<div class="brazier-zoom"><button data-act="zoomout">-</button><span class="brazier-zoomvalue">100%</span><button data-act="zoomin">+</button><button data-act="fit">Fit</button></div><div class="brazier-overlay"></div></div></section></section></div>`;
 window.foundry={applications:{api:{
   ApplicationV2:class {
-    constructor(options={}){this.options=options;this.rendered=false;this.element=document.createElement('div');this.element.className='brazier-window';this.element.style.width='1160px';this.element.style.height='750px';this.element.innerHTML=fixture;document.body.appendChild(this.element)}
+    constructor(options={}){this.options=options;this.rendered=false;this.element=document.createElement('div');this.element.className='brazier-window';this.element.style.width='1160px';this.element.style.height='750px';document.body.appendChild(this.element)}
     async _prepareContext(){return{}}
     async _onRender(){}
-    async render(){await this._prepareContext({});this.rendered=true;await this._onRender({},{});return this}
+    async render(){
+      const context=await this._prepareContext({});
+      const holder=document.createElement('div');holder.innerHTML=Handlebars.compile(window.__template)(context);
+      const part=holder.firstElementChild;
+      // Model root-part child replacement, which the former fixture did not exercise.
+      this.element.replaceChildren(...(this.constructor.PARTS.body.root?[...part.childNodes]:[part]));
+      this.rendered=true;await this._onRender(context,{});return this;
+    }
   },HandlebarsApplicationMixin:Base=>Base}, apps:{FilePicker:class{async render(){}}}}};
 '''
 
@@ -79,6 +80,8 @@ with sync_playwright() as playwright:
     js_errors=[]
     page.on('pageerror',lambda e:js_errors.append(str(e)))
     page.set_content('<html><head></head><body></body></html>')
+    page.add_script_tag(path=str(ROOT/'tests/vendor/handlebars.js'))
+    page.evaluate('(template)=>window.__template=template',(ROOT/'templates/window.hbs').read_text())
     page.evaluate('()=>{'+BOOTSTRAP+'}')
     page.add_style_tag(content=(ROOT/'styles/brazier.css').read_text())
     urls={'modelUrl':model_url,'appUrl':app_url}
@@ -167,14 +170,14 @@ with sync_playwright() as playwright:
     assert private_access['count']==1 and not private_access['leaked'],private_access
     launcher=page.evaluate('''async(mainUrl)=>{
       game.user=__users[0];
-      const sidebar=document.createElement('div');sidebar.id='sidebar-tabs';document.body.append(sidebar);
+      const sidebar=document.createElement('div');sidebar.id='sidebar-tabs';sidebar.style.display='none';document.body.append(sidebar);
       await import(mainUrl);
       for(const cb of Hooks.events.init??[])await cb();
       for(const cb of Hooks.events.ready??[])await cb();
       const btn=document.querySelector('#brazier-launcher');
-      return {button:!!btn,sidebar:btn?.parentNode===sidebar,api:typeof game.modules.get('brazier').api.open};
+      return {button:!!btn,floating:btn?.parentNode===document.body,visible:!!btn?.getBoundingClientRect().width,svg:!!btn?.querySelector('svg'),api:typeof game.modules.get('brazier').api.open};
     }''',main_url)
-    assert launcher=={'button':True,'sidebar':True,'api':'function'},launcher
+    assert launcher=={'button':True,'floating':True,'visible':True,'svg':True,'api':'function'},launcher
     # Re-rendering the same root/canvas must not accumulate duplicate click handlers.
     handler_count=page.evaluate('''async()=>{
       const app=window.__app;let clicks=0;
@@ -184,16 +187,16 @@ with sync_playwright() as playwright:
       return clicks;
     }''')
     assert handler_count==1,('duplicate delegated click handlers',handler_count)
-    # Late sidebar mount should relocate the existing button (not leave a floating one).
+    # Sidebar replacement must leave the independent launcher visible.
     rehome=page.evaluate('''async()=>{
       const old=document.querySelector('#sidebar-tabs');
       const btn=document.querySelector('#brazier-launcher');document.body.append(btn);old.remove();btn.classList.remove('in-sidebar');
       const other=document.createElement('div');other.id='sidebar-tabs';document.body.append(other);
       for(const cb of Hooks.events.renderSidebar??[])await cb();
       await new Promise(queueMicrotask);
-      return btn.parentNode===other&&btn.classList.contains('in-sidebar');
+      return btn.parentNode===document.body&&!btn.classList.contains('in-sidebar')&&!!btn.getBoundingClientRect().width;
     }''')
-    assert rehome,'launcher did not relocate to newly mounted sidebar'
+    assert rehome,'sidebar replacement hid the independent launcher'
     # HTML and custom image fields must not inject active markup into node views.
     injection=page.evaluate('''()=>{
       game.user=__users[0];const app=__app,tree=__master.getFlag('brazier','data').tree;
@@ -215,6 +218,29 @@ with sync_playwright() as playwright:
     assert narrow['fraction']>=0.77 and narrow['canvasHeight']>=240,narrow
     errors=page.evaluate('window.__errors')
     assert not js_errors and not errors,(js_errors,errors)
+    # Exercise real top-level template buttons through native browser clicks.
+    # This fails when root:true discards .brazier-root and event binding returns early.
+    page.set_viewport_size({'width':1500,'height':980})
+    baseline=page.evaluate('''async(appUrl)=>{
+      document.querySelectorAll('.brazier-window').forEach(el=>el.remove());
+      const {BrazierApplication}=await import(appUrl);
+      window.__regressionApp=new BrazierApplication();await __regressionApp.render({force:true});
+      return __docs.filter(d=>d.getFlag('brazier','data')?.kind==='master').length;
+    }''',app_url)
+    for value,title in [('boons','Benison Boons'),('curio','Curio'),('caravan','Caravan')]:
+      page.locator(f'[data-act="tab"][data-value="{value}"]').click()
+      page.locator('.brazier-coming-soon h2').filter(has_text=title).wait_for()
+      assert page.evaluate('window.__regressionApp.tab')==value
+    page.locator('[data-act="tab"][data-value="trees"]').click()
+    page.locator('[data-act="new-tree"]').click()
+    page.wait_for_function('(before)=>__docs.filter(d=>d.getFlag("brazier","data")?.kind==="master").length===before+1',arg=baseline)
+    page.locator('[data-act="add-node"]').wait_for()
+    before_nodes=page.evaluate('window.__regressionApp.tree.nodes.length')
+    page.locator('[data-act="add-node"]').click()
+    page.wait_for_function('(before)=>__regressionApp.tree.nodes.length===before+1',arg=before_nodes)
+    page.locator('[data-act="tree-settings"]').click()
+    page.locator('[data-field="tree.name"]').wait_for()
+    print('Real Handlebars template: tab clicks, New Tree, Add Talent, Tree Settings: PASSED')
     browser.close()
     print('Brazier Chromium DOM/CSS/pan/zoom/editor smoke tests: PASSED')
     print('Canvas share of width: %.1f%%'%(100*result['stageWidth']/result['windowWidth']))
