@@ -110,6 +110,14 @@ with sync_playwright() as playwright:
     assert result['paths']==4, result
     assert result['stageWidth']>=result['windowWidth']*0.75, result
     assert all(d in result['labels'] for d in ['North','South','East','West','Center']),result
+    # Locked talents must mask connectors exactly like available/unlocked talents.
+    opacity=page.evaluate('''()=>{
+      const symbols=[...__app.element.querySelectorAll('.brazier-node-symbol')];
+      return {locked:__app.element.querySelectorAll('.brazier-node.locked').length,
+        transparent:symbols.some(el=>getComputedStyle(el).opacity!=='1'||getComputedStyle(el.parentElement).opacity!=='1'),
+        backgrounds:symbols.every(el=>!getComputedStyle(el).backgroundImage.includes('rgba('))};
+    }''')
+    assert opacity['locked']>0 and not opacity['transparent'] and opacity['backgrounds'],opacity
     stage=page.locator('.brazier-stage')
     initial_zoom=page.locator('.brazier-zoomvalue').inner_text()
     stage.hover(position={'x':400,'y':450})
@@ -168,16 +176,28 @@ with sync_playwright() as playwright:
       return {count:playerTrees.length,leaked:safe.includes('Top Secret')||safe.includes('UNAUTHORIZED SECRET')};
     }''')
     assert private_access['count']==1 and not private_access['leaked'],private_access
-    launcher=page.evaluate('''async(mainUrl)=>{
+    native_tool=page.evaluate('''async(mainUrl)=>{
       game.user=__users[0];
-      const sidebar=document.createElement('div');sidebar.id='sidebar-tabs';sidebar.style.display='none';document.body.append(sidebar);
       await import(mainUrl);
       for(const cb of Hooks.events.init??[])await cb();
       for(const cb of Hooks.events.ready??[])await cb();
-      const btn=document.querySelector('#brazier-launcher');
-      return {button:!!btn,floating:btn?.parentNode===document.body,visible:!!btn?.getBoundingClientRect().width,svg:!!btn?.querySelector('svg'),api:typeof game.modules.get('brazier').api.open};
+      const select={name:'select',order:0};
+      const controls={tokens:{tools:{select}},lighting:{tools:{}}};
+      for(const cb of Hooks.events.getSceneControlButtons??[])cb(controls);
+      for(const cb of Hooks.events.getSceneControlButtons??[])cb(controls);
+      window.__nativeTool=controls.tokens.tools.brazier;
+      game.user=__users[1];
+      const player={tokens:{tools:{select}}};
+      for(const cb of Hooks.events.getSceneControlButtons??[])cb(player);
+      for(const cb of Hooks.events.getSceneControlButtons??[])cb({});
+      game.user=__users[0];
+      return {toolCount:Object.keys(controls.tokens.tools).length,preservesSelect:controls.tokens.tools.select===select,
+        button:__nativeTool.button,visible:__nativeTool.visible,playerVisible:player.tokens.tools.brazier.visible,
+        order:__nativeTool.order,handler:typeof __nativeTool.onChange,
+        floating:!!document.querySelector('#brazier-launcher'),api:typeof game.modules.get('brazier').api.open};
     }''',main_url)
-    assert launcher=={'button':True,'floating':True,'visible':True,'svg':True,'api':'function'},launcher
+    assert native_tool=={'toolCount':2,'preservesSelect':True,'button':True,'visible':True,
+      'playerVisible':True,'order':1,'handler':'function','floating':False,'api':'function'},native_tool
     # Re-rendering the same root/canvas must not accumulate duplicate click handlers.
     handler_count=page.evaluate('''async()=>{
       const app=window.__app;let clicks=0;
@@ -187,16 +207,6 @@ with sync_playwright() as playwright:
       return clicks;
     }''')
     assert handler_count==1,('duplicate delegated click handlers',handler_count)
-    # Sidebar replacement must leave the independent launcher visible.
-    rehome=page.evaluate('''async()=>{
-      const old=document.querySelector('#sidebar-tabs');
-      const btn=document.querySelector('#brazier-launcher');document.body.append(btn);old.remove();btn.classList.remove('in-sidebar');
-      const other=document.createElement('div');other.id='sidebar-tabs';document.body.append(other);
-      for(const cb of Hooks.events.renderSidebar??[])await cb();
-      await new Promise(queueMicrotask);
-      return btn.parentNode===document.body&&!btn.classList.contains('in-sidebar')&&!!btn.getBoundingClientRect().width;
-    }''')
-    assert rehome,'sidebar replacement hid the independent launcher'
     # HTML and custom image fields must not inject active markup into node views.
     injection=page.evaluate('''()=>{
       game.user=__users[0];const app=__app,tree=__master.getFlag('brazier','data').tree;
@@ -241,6 +251,13 @@ with sync_playwright() as playwright:
     page.locator('[data-act="tree-settings"]').click()
     page.locator('[data-field="tree.name"]').wait_for()
     print('Real Handlebars template: tab clicks, New Tree, Add Talent, Tree Settings: PASSED')
+    opened=page.evaluate('''async()=>{
+      const before=document.querySelectorAll('.brazier-window').length;
+      await __nativeTool.onChange(new Event('click'),true);
+      return document.querySelectorAll('.brazier-window').length===before+1;
+    }''')
+    assert opened,'Native Token Controls button did not open Brazier'
+    print('Native Token Controls registration/action and opaque talent symbols: PASSED')
     browser.close()
     print('Brazier Chromium DOM/CSS/pan/zoom/editor smoke tests: PASSED')
     print('Canvas share of width: %.1f%%'%(100*result['stageWidth']/result['windowWidth']))
