@@ -22,7 +22,8 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     position:{width:1160,height:750},
     window:{title:"Brazier", icon:"fa-solid fa-fire-flame-curved", resizable:true, minimizable:true}
   };
-  static PARTS = {body:{template:"modules/brazier/templates/window.hbs",root:true}};
+  // Keep the template wrapper: delegated controls and layout bind to .brazier-root.
+  static PARTS = {body:{template:"modules/brazier/templates/window.hbs"}};
 
   constructor(options={}) {
     super(options);
