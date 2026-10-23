@@ -9,6 +9,9 @@
     </nav>
     {{#if gm}}<span class="brazier-storyteller" title="Storyteller controls enabled">STORYTELLER</span>{{/if}}
   </header>
+  {{#if canViewAs}}
+  <div class="brazier-perspective"><label>View as <select data-view-as aria-label="View Brazier as"><option value="">Storyteller</option>{{#each viewAsPlayers}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>{{#if viewAsActive}}<span>Viewing as {{viewAsName}}. Saved choices and purchases affect this player.</span><button type="button" data-act="return-storyteller">Return to Storyteller</button>{{/if}}</div>
+  {{/if}}
   {{#if treesTab}}
   <section class="brazier-workspace">
     <aside class="brazier-rail {{#if railCollapsed}}collapsed{{/if}}">
