@@ -1,5 +1,6 @@
 import {MODULE_ID, ICONS, uid, clone} from "./model.mjs";
 import {PROPERTY_RUNE_IDS,FUNDAMENTAL_RUNE_IDS} from "./rune-reference.mjs";
+import {normalizeTrait,normalizedTraits,isBenisonConsumable,DEFAULT_BANDS,validateBands,characterLevel} from "./benison-model.mjs";
 
 const flag="catalog";
 const data=doc=>doc.getFlag(MODULE_ID,flag);
@@ -90,13 +91,15 @@ export function curioWorldItem(id){return game.user.isGM?curioItems(id)[0]??null
 
 export function boonCatalog(){
   const doc=docs().find(d=>data(d).kind==="boons"&&readable(d));
-  return {runeCount:1,...clone(doc?data(doc).boons:{schema:1,updatedAt:0,consumableCount:1,consumables:[],runes:[],memories:[]})};
+  const b=clone(doc?data(doc).boons:{schema:1,updatedAt:0,consumableCount:1,consumables:[],runes:[],memories:[]});
+  return {runeCount:1,...b,quantityBands:clone(b.quantityBands??DEFAULT_BANDS)};
 }
 export async function saveBoons(input){
   gm();const b=clone(input);
   return serial("boons",async()=>{
     if(b.schema!==1||!Number.isSafeInteger(b.consumableCount)||b.consumableCount<0||b.consumableCount>9999||!["consumables","runes","memories"].every(k=>Array.isArray(b[k])&&b[k].length<=5000))throw new Error("Invalid boon catalog or consumable count.");
     if(!Number.isSafeInteger(b.runeCount??1)||b.runeCount<0||b.runeCount>9999)throw new Error("Invalid rune choice count.");
+    validateBands(b.quantityBands??DEFAULT_BANDS);
     for(const key of ["consumables","runes","memories"])for(const entry of b[key])if(typeof entry.uuid!=="string"||typeof entry.name!=="string"||entry.name.length>200)throw new Error("Invalid boon entry.");
     const doc=docs().find(d=>data(d).kind==="boons");
     if((doc?data(doc).boons.updatedAt:0)!==b.updatedAt)throw new Error("Boons changed; refresh before saving.");
@@ -109,9 +112,9 @@ export async function saveBoons(input){
 }
 export async function addConsumable(uuid){
   gm();const item=await fromUuid(uuid);
-  if(!item?.isOfType?.("consumable"))throw new Error("Choose a PF2E consumable item.");
+  if(!isBenisonConsumable(item))throw new Error("Choose a physical PF2E item with the consumable trait.");
   const b=boonCatalog();if(b.consumables.some(i=>i.uuid===uuid))return b;
-  b.consumables.push({uuid,name:item.name,img:assetPath(item.img),level:item.system.level.value,category:item.system.category,rarity:item.system.traits.rarity});
+  b.consumables.push({uuid,name:item.name,img:assetPath(item.img),type:item.type,traits:clone(item.system.traits.value),level:item.system.level.value,category:item.system.category??item.type,rarity:item.system.traits.rarity});
   return saveBoons(b);
 }
 export function runeKind(item){
@@ -142,6 +145,7 @@ export async function setBoonChoices(section,uuids,userId,requestId=null){
     if(requestId&&requestIds.includes(requestId))return boonChoices(game.users.get(userId));
     const user=game.users.get(userId),b=boonCatalog();
     if(!user||user.isGM||!["consumables","runes","memories"].includes(section)||!Array.isArray(uuids)||new Set(uuids).size!==uuids.length||uuids.some(id=>!b[section].some(i=>i.uuid===id)))throw new Error("Invalid player choices.");
+    if(section==="consumables"&&uuids.length&&characterLevel(user)===null)throw new Error("This player needs an assigned PF2E character.");
     const limit=section==="consumables"?b.consumableCount:section==="runes"?b.runeCount:b.memories.length;
     if(uuids.length>limit)throw new Error("Too many choices for the current allowance.");
     const choices=boonChoices(user);choices[section]=clone(uuids);
@@ -186,6 +190,6 @@ export async function itemIndex(){
 }
 export function filterItems(items,filters){
   const q=(filters.query||"").trim().toLocaleLowerCase();
-  const selected=filters.traits??(filters.trait?[filters.trait]:[]);
-  return items.filter(i=>(!filters.type||i.type===filters.type)&&(!q||i.name.toLocaleLowerCase().includes(q))&&(!filters.category||i.category===filters.category)&&(!filters.rarity||i.rarity===filters.rarity)&&(!filters.pack||i.pack===filters.pack)&&(!selected.length||(filters.traitMode==="any"?selected.some(t=>i.traits.includes(t)):selected.every(t=>i.traits.includes(t))))&&i.level>=Number(filters.min||0)&&i.level<=Number(filters.max??30));
+  const selected=(filters.traits??(filters.trait?[filters.trait]:[])).map(normalizeTrait);
+  return items.filter(i=>(!filters.type||i.type===filters.type)&&(!q||i.name.toLocaleLowerCase().includes(q))&&(!filters.category||i.category===filters.category)&&(!filters.rarity||i.rarity===filters.rarity)&&(!filters.pack||i.pack===filters.pack)&&(!selected.length||(filters.traitMode==="any"?selected.some(t=>normalizedTraits(i).includes(t)):selected.every(t=>normalizedTraits(i).includes(t))))&&i.level>=Number(filters.min||0)&&i.level<=Number(filters.max??30));
 }

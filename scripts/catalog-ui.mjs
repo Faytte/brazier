@@ -1,4 +1,5 @@
 import {viewingAs,storyteller} from "./perspective.mjs";
+import {normalizedTraits,isBenisonConsumable,characterLevel,benisonAmount} from "./benison-model.mjs";
 import {ICONS,clone,uid} from "./model.mjs";
 import {availableCurios,freshCurio,freshGift,saveCurio,syncCurio,curioWorldItem,boonCatalog,saveBoons,addConsumable,addRune,runeKind,boonChoices,setBoonChoices,requestBoonChoices,itemIndex,clearItemIndex,filterItems,escapeHTML as h,assetPath} from "./catalog.mjs";
 
@@ -51,13 +52,26 @@ function boonsHTML(app){
   const chosen=(app.choiceDrafts[draftKey]??saved).filter(id=>b[section].some(i=>i.uuid===id));
   return `<section class="brazier-boons"><nav class="brazier-subtabs" aria-label="Benison Boon sections">${Object.entries(sections).map(([key,label])=>btn("boon-section",label,key,`class="${section===key?"active":""}"`)).join("")}</nav><div class="brazier-catalog-body"><div class="brazier-section-heading"><h2>${sections[section]}</h2>${gm?`<div class="brazier-mode-toggle" aria-label="Catalog mode">${btn("catalog-mode","Overview","overview",`aria-pressed="${!manage}"`)}${btn("catalog-mode","Manage Options","manage",`aria-pressed="${manage}"`)}</div>`:""}</div>
   ${searchable?gm?`<div class="brazier-choice-count">${field(`Global number of ${section==="runes"?"rune":"consumable"} choices`,input("boons.count",app.countDrafts?.[section]??b[countKey],"number",'min="0" max="9999" step="1"'))}${btn("save-boon-count","Save Choice Count")}</div>`:`<p>Choose up to <strong>${limit}</strong> ${sections[section].toLowerCase()}.</p>`:""}
+  ${gm&&section==="consumables"?quantityBandsHTML(app,b):""}
   ${manage&&searchable?searchHTML(app,section):""}
   ${manage&&!searchable?`${field("New option name",input("boons.optionName",app.boonOptionName??""))}${field("Details",`<textarea data-cat-field="boons.optionDescription">${h(app.boonOptionDescription??"")}</textarea>`)}${btn("add-boon-option","+ Add Option")}`:""}
-  <h3>Current Options (${b[section].length})</h3><div class="brazier-curated-list">${b[section].map(i=>`<article><span><strong>${h(i.name)}</strong>${i.level!==undefined?` <small>Level ${h(i.level)} · ${h(i.category)}</small>`:""}${i.description?prose(i.description):""}</span>${i.uuid.startsWith("Compendium.")?btn("open-source","View",i.uuid):""}${manage?btn("remove-boon","Remove",i.uuid):""}${!gm?btn("toggle-choice",chosen.includes(i.uuid)?"Selected ✓":"Choose",i.uuid,`aria-pressed="${chosen.includes(i.uuid)}"`):""}</article>`).join("")||'<p>No options added yet.</p>'}</div>
-  ${!gm?`<div class="brazier-choice-footer"><span>${chosen.length} / ${limit} selected</span>${btn("save-choices","Save Choices","",chosen.length>limit?"disabled":"")}${btn("clear-choices","Clear Choices")}<small>Selections are saved for this player. Items are not distributed automatically.</small></div>`:""}</div></section>`;
+  ${!gm&&section==="consumables"?`<p class="brazier-note">Character: ${h(user.character?.name??"Not assigned")} · Level ${characterLevel(user)??"—"}${characterLevel(user)===null?". Assign a PF2E character to this player before choosing consumables.":""}</p>`:""}
+  <h3>Current Options (${b[section].length})</h3>${!gm&&section==="consumables"?consumableChoicesHTML(app,user,b,chosen):`<div class="brazier-curated-list">${b[section].map(i=>`<article><span><strong>${h(i.name)}</strong>${i.level!==undefined?` <small>Level ${h(i.level)} · ${h(i.category)}</small>`:""}${i.description?prose(i.description):""}</span>${i.uuid.startsWith("Compendium.")?btn("open-source","View",i.uuid):""}${manage?btn("remove-boon","Remove",i.uuid):""}${!gm?btn("toggle-choice",chosen.includes(i.uuid)?"Selected ✓":"Choose",i.uuid,`aria-pressed="${chosen.includes(i.uuid)}"`):""}</article>`).join("")||'<p>No options added yet.</p>'}</div>`}
+  ${!gm?`<div class="brazier-choice-footer"><span>${chosen.length} / ${limit} selected</span>${btn("save-choices","Save Choices","",chosen.length>limit?"disabled":"")}${btn("clear-choices","Clear Choices")}<small>Saved consumables are created on the assigned character during PF2e Dailies preparation. Changes apply at the next preparation; runes and memories remain selections only.</small></div>`:""}</div></section>`;
+}
+function consumableChoicesHTML(app,user,b,chosen){
+  const level=characterLevel(user),full=chosen.length>=b.consumableCount;
+  return `<table class="brazier-consumable-choices"><thead><tr><th scope="col">Select</th><th scope="col">Consumable</th><th scope="col">Level</th><th scope="col">Amount</th><th scope="col">Details</th></tr></thead><tbody>${b.consumables.map(item=>{
+    const checked=chosen.includes(item.uuid),disabled=level===null||!checked&&full;
+    return `<tr class="${disabled?"unavailable":""}"><td><input type="checkbox" data-cat-field="choice.consumables" data-option="${h(item.uuid)}" aria-label="Select ${h(item.name)}" ${checked?"checked":""} ${disabled?"disabled":""}></td><td>${h(item.name)}</td><td>${h(item.level??"—")}</td><td class="brazier-amount">${checked?(benisonAmount(level,item.level,b.quantityBands)??"—"):"—"}</td><td>${item.uuid.startsWith("Compendium.")?btn("open-source","View",item.uuid):""}</td></tr>`;
+  }).join("")||'<tr><td colspan="5">No consumables added yet.</td></tr>'}</tbody></table>`;
+}
+function quantityBandsHTML(app,b){
+  const bands=app.quantityBandDraft??b.quantityBands;
+  return `<details class="brazier-quantity-settings"><summary>Consumable quantity bands</summary><p>Minimum level is relative to the assigned character. Higher items use the first tier; lower than the second minimum uses the last tier.</p><table><thead><tr><th>Tier</th><th>Minimum level offset</th><th>Amount per selected option</th></tr></thead><tbody><tr><td>Highest</td><td>${input("bands.highMinimum",bands.highMinimum,"number",'min="-30" max="30" step="1" aria-label="Highest tier minimum level"')}</td><td>${input("bands.highQuantity",bands.highQuantity,"number",'min="1" max="9999" step="1" aria-label="Highest tier amount"')}</td></tr><tr><td>Middle</td><td>${input("bands.middleMinimum",bands.middleMinimum,"number",'min="-30" max="30" step="1" aria-label="Middle tier minimum level"')}</td><td>${input("bands.middleQuantity",bands.middleQuantity,"number",'min="1" max="9999" step="1" aria-label="Middle tier amount"')}</td></tr><tr><td>Lowest</td><td>Anything below the middle minimum</td><td>${input("bands.lowQuantity",bands.lowQuantity,"number",'min="1" max="9999" step="1" aria-label="Lowest tier amount"')}</td></tr></tbody></table>${btn("save-bands","Save Quantity Bands")}</details>`;
 }
 function sectionIndex(app,section){
-  return (app.catalogIndex??[]).flatMap(i=>section==="runes"?(runeKind(i)?[{...i,category:runeKind(i)}]:[]):i.type==="consumable"?[i]:[]);
+  return (app.catalogIndex??[]).flatMap(i=>section==="runes"?(runeKind(i)?[{...i,category:runeKind(i)}]:[]):isBenisonConsumable(i)?[i]:[]);
 }
 function filtersFor(app,section){app.boonFilters??={};return app.boonFilters[section]??={query:"",min:0,max:30,category:"",rarity:"",pack:"",traits:[],traitMode:"all",traitQuery:""};}
 function traitLabel(trait){const key=globalThis.CONFIG?.PF2E?.consumableTraits?.[trait]??globalThis.CONFIG?.PF2E?.equipmentTraits?.[trait];return key&&game.i18n?.localize?game.i18n.localize(key):trait.replace(/([a-z])(\d)/g,"$1 $2").replaceAll("-"," ").replace(/\b\w/g,c=>c.toUpperCase());}
@@ -65,7 +79,7 @@ function searchHTML(app,section){
   const f=filtersFor(app,section),index=sectionIndex(app,section),unique=k=>[...new Set(index.map(i=>i[k]).filter(Boolean))].sort();
   const results=filterItems(index,f);app.itemPages??={};const page=Math.min(app.itemPages[section]??0,Math.max(0,Math.ceil(results.length/40)-1));app.itemPages[section]=page;
   const pool=filterItems(index,{...f,traits:[]}),counts=new Map();
-  for(const i of pool)for(const t of new Set(i.traits))counts.set(t,(counts.get(t)??0)+1);
+  for(const i of pool)for(const t of normalizedTraits(i))counts.set(t,(counts.get(t)??0)+1);
   for(const t of f.traits??[])if(!counts.has(t))counts.set(t,0);
   const traits=[...counts.keys()].sort((a,b)=>Number(f.traits.includes(b))-Number(f.traits.includes(a))||traitLabel(a).localeCompare(traitLabel(b)));
   return `<fieldset><legend>PF2E ${section==="runes"?"property rune":"consumable"} search</legend><div class="brazier-section-heading">${btn("load-items",app.catalogLoading?"Loading…":"Load / Reload Compendiums","",app.catalogLoading?"disabled":"")}<small>${results.length} matching items</small></div>${field("Name",input("filter.query",f.query,"search"))}<div class="brazier-filters">${field("Minimum level",input("filter.min",f.min,"number",'min="0" max="30"'))}${field("Maximum level",input("filter.max",f.max,"number",'min="0" max="30"'))}${field(section==="runes"?"Rune target (item = accessory)":"Category",select("filter.category",unique("category"),f.category,true))}${field("Rarity",select("filter.rarity",unique("rarity"),f.rarity,true))}${field("Source compendium",select("filter.pack",unique("pack"),f.pack,true))}</div>
@@ -127,6 +141,7 @@ export async function catalogClick(app,event){
         case "item-next":{const k=app.boonSection??"consumables";app.itemPages??={};app.itemPages[k]=(app.itemPages[k]??0)+1;break;}
         case "add-consumable":await addConsumable(id);break;
         case "add-rune":await addRune(id);break;
+        case "save-bands":{const b=boonCatalog();b.quantityBands={...b.quantityBands,...app.quantityBandDraft};await saveBoons(b);app.quantityBandDraft=null;break;}
         case "save-boon-count":{const b=boonCatalog();b[app.boonSection==="runes"?"runeCount":"consumableCount"]=Number(app.element.querySelector('[data-cat-field="boons.count"]').value);await saveBoons(b);app.countDrafts??={};delete app.countDrafts[app.boonSection??"consumables"];break;}
         case "remove-boon":{const b=boonCatalog(),section=app.boonSection??"consumables";b[section]=b[section].filter(i=>i.uuid!==id);await saveBoons(b);break;}
         case "add-boon-option":{
@@ -141,8 +156,19 @@ export async function catalogClick(app,event){
 }
 export async function catalogChange(app,event){
   const el=event.target,key=el.dataset.catField;if(!key)return false;
-  if(!storyteller(app))throw new Error("Storyteller only.");
   const value=el.type==="checkbox"?el.checked:el.value;
+  if(key==="choice.consumables"){
+    if(event.type==="input")return true;
+    const user=viewingAs(app),b=boonCatalog();if(user.isGM)throw new Error("View as a player before making choices.");
+    if(value&&characterLevel(user)===null)throw new Error("This player needs an assigned PF2E character.");
+    app.choiceDrafts??={};const draftKey=`${user.id}:consumables`,chosen=app.choiceDrafts[draftKey]??=clone(boonChoices(user).consumables);
+    if(!b.consumables.some(i=>i.uuid===el.dataset.option))throw new Error("Consumable no longer available.");
+    if(value&&!chosen.includes(el.dataset.option)&&chosen.length>=b.consumableCount)throw new Error("The consumable choice limit has been reached.");
+    app.choiceDrafts[draftKey]=value?[...new Set([...chosen,el.dataset.option])]:chosen.filter(id=>id!==el.dataset.option);
+    await app._refresh();return true;
+  }
+  if(!storyteller(app))throw new Error("Storyteller only.");
+  if(key.startsWith("bands.")){app.quantityBandDraft??=clone(boonCatalog().quantityBands);app.quantityBandDraft[key.slice(6)]=Number(value);return true;}
   if(key.startsWith("gift-filter.")){app.giftFilters??={};app.giftFilters[key.slice(12)]=value;app.giftPage=0;return true;}
   if(key.startsWith("filter.")){
     const section=app.boonSection??"consumables",f=filtersFor(app,section),part=key.slice(7);app.itemPages??={};app.itemPages[section]=0;

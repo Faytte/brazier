@@ -1,6 +1,7 @@
 import {BrazierApplication} from "./app.mjs";
 import {receiveRequest,processPendingRequests,refreshAll} from "./store.mjs";
 import {refreshCatalog,receiveBoonRequest} from "./catalog.mjs";
+import {registerBenisonDailies} from "./benison-dailies.mjs";
 
 let app;
 function openBrazier(){
@@ -27,6 +28,8 @@ Hooks.once("init",()=>{
   game.modules.get("brazier").api={open:openBrazier};
 });
 Hooks.once("ready",async()=>{
+  registerBenisonDailies();
+  for(const hook of ["updateActor","updateUser"]){Hooks.on(hook,()=>{if(app?.rendered)app.render().catch(console.error);});}
   Hooks.on("updateJournalEntry",(doc)=>{
     if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")) && app?.rendered) app.render().catch(console.error);
   });
