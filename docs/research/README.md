@@ -1,6 +1,6 @@
 # PF2E integration research
 
-Reviewed 2026-10-23. This is a source-backed working reference for Brazier development, not a claim to have read every published Pathfinder option or tested an integration in Foundry. Runtime integration is not implemented by these notes. Brazier remains at 0.1.5.
+Reviewed 2026-10-23. This is a source-backed working reference for Brazier development, not a claim to have read every published Pathfinder option or tested an integration in Foundry. Brazier v0.3.0 implements the consumable adapter described in [Benison preparation](benison-preparation.md). These notes distinguish source review from live integration testing.
 
 ## Version baseline
 
