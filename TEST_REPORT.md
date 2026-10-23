@@ -1,3 +1,13 @@
+# v0.2.0 Curio and Benison catalogs — October 23, 2026
+
+New catalog model and UI are separate from the skill-tree implementation. Tests cover public-summary allowlisting, private details, permission revocation, stable item IDs, marked actor-copy updates, preservation of existing item rules and quantity, stale writes, partial synchronization failure recovery, gift/image validation, more than 100 gifts, catalog deduplication, global choice counts and combined item filters.
+
+Local syntax checks, all Node suites, existing coverage floors, the new catalog model floor (95% lines / 80% branches), and static package audit pass. The macOS sandbox blocks local Chromium launch (MachPortRendezvous permission denied). An in-app browser preview with a mocked Foundry host was used to exercise Curio saving, gift selection, consumable indexing and the global count controls. The automated Chromium suite is extended to cover those interactions and runs in GitHub Actions before release.
+
+The browser fixture compiles the real template and imports production scripts. Its Item, JournalEntry, ownership and compendium APIs are simulated. No live Foundry installation or real PF2E/Dailies integration was tested. Relic gifts are descriptive text and source links; automated bearer mechanics are not implemented. Existing skill-tree tests remain part of the QA gate.
+
+---
+
 # v0.1.5 native controls and opaque talents — October 23, 2026
 
 Uses Foundry’s documented V14 getSceneControlButtons hook to register a button

@@ -1,4 +1,4 @@
-# Brazier — Flame Management (0.1.5)
+# Brazier — Flame Management (0.2.0)
 
 **Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
@@ -50,7 +50,18 @@ For manual installation:
 
 Each tree adds one GM-only world Journal Entry (`Brazier • [Name] [Storyteller]`) and one observer-only projection Journal Entry per permitted non-GM player (`Brazier • [Name]`). These entries are visible in the journal directory to authorized users and can be managed/backed up using Foundry's normal document mechanisms. **Do not manually adjust projection ownership or content**: Brazier maintains projections from the GM master. Removing the module does not automatically delete these Journal Entries.
 
-The module never relies on Scene Notes, tokens, maps, characters, or a particular game system. Most functions require an active Storyteller client for changes to propagate (the same as many GM-authoritative Foundry features).
+Skill trees never rely on Scene Notes, tokens, maps, characters, or a particular game system. Curio inventory items and the consumable picker require PF2E. Most functions require an active Storyteller client for changes to propagate (the same as many GM-authoritative Foundry features).
+
+### Curio and Benison Boons (v0.2.0)
+
+- **Curio → New Curio**: enter a name, choose one of the same 20 icon themes used by talents, or browse/upload custom art. Add a private description and select the players allowed to read details.
+- Add any number of **Relic Gifts**, subject to Foundry document size limits. Each has a name, aspect, minor/major/grand tier, and effect/activation/frequency text. Use **Choose Compendium Gift**, load installed Item compendiums, search by name/source and select a gift to import its name/text. The picker supports optional relic-gift modules without requiring one. You can also enter a source Item UUID or write a fully custom gift. Imported GM-secret HTML sections are omitted.
+- **Save Curio & Sync Item** creates one PF2E equipment item in the world Items directory, or updates the existing item by its stable Brazier Curio ID. You can drag that item to a character. Later saves update names, descriptions and art on marked actor copies while preserving inventory state and manually authored rule elements. A copied Curio item remains linked to its catalog entry; duplicate templates with the same marker are reported rather than guessed at. Use Retry Item Sync after a partial failure.
+- **Gifts currently store text and source links.** Importing an automated effect does not automatically transfer its rule elements, actions or resources to the bearer. These require a future PF2E mechanics adapter; the source sheet remains available for reference.
+- Every player can see Curio names/icons. Descriptions/gifts live in a separate restricted journal document; the GM master is private. The generated world item is shared only with selected players. Giving it to an actor also shares its contents with that actor's owners. Revoking catalog access cannot erase a previously received item copy or knowledge already seen.
+- **Benison Boons** has Consumables, Runes, and Memories and Shrouds tabs. Consumables supports indexed search across accessible installed Item compendiums, filtered to PF2E consumable documents, with name, level range, category, rarity, trait and source filters. Add/remove entries in the curated list; duplicates are ignored.
+- Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selection/distribution is not implemented yet. Runes and Memories and Shrouds currently support named options with descriptive text; no rune automation or item granting occurs from these lists.
+- Catalog state uses world Journal Entries under the separate `brazier.catalog` flag. Curio public summaries contain only ID/name/icon/art; restricted details are separate. Curio item provenance uses `brazier.curioId`. Existing tree documents are unchanged. Research for future adapters is in [docs/research](docs/research/README.md).
 
 ### Important limitations
 
