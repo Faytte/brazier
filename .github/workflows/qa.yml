@@ -1,0 +1,31 @@
+name: Offline QA
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: brazier
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -r requirements-dev.txt
+        working-directory: brazier
+      - run: python -m playwright install --with-deps chromium
+        working-directory: brazier
+      - run: python tests/run_qa.py
+        working-directory: brazier
+      - run: python tools/build_release.py --repo "$GITHUB_REPOSITORY"
+        working-directory: brazier
+      - uses: actions/upload-artifact@v4
+        with:
+          name: brazier-package
+          path: brazier/dist/
