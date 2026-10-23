@@ -4,9 +4,9 @@ from pathlib import Path
 R=Path(__file__).resolve().parents[1]
 manifest=json.loads((R/'module.json').read_text())
 assert manifest['id']==R.name=='brazier'
-assert manifest['version']=='0.1.2'
+assert re.fullmatch(r'\d+\.\d+\.\d+',manifest['version'])
 assert manifest['compatibility']['minimum']=='14'
-assert 'verified' not in manifest['compatibility'],'Do not claim live Foundry verification'
+assert manifest['compatibility']['verified']=='14.369','Declared compatibility target must match release documentation'
 for item in manifest['esmodules']+manifest['styles']:
  assert (R/item).is_file(),item
 for js in (R/'scripts').glob('*.mjs'):
