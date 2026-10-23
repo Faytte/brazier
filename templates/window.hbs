@@ -50,6 +50,10 @@
     </section>
   </section>
   {{else}}
+    {{#if catalogTab}}
+    {{{catalogContent}}}
+    {{else}}
     <section class="brazier-coming-soon"><i class="fa-solid fa-fire-flame-curved"></i><h2>{{placeholderTitle}}</h2><p>This section is reserved for a future Brazier update.</p></section>
+    {{/if}}
   {{/if}}
 </div>
