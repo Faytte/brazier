@@ -1,3 +1,13 @@
+# v0.2.1 catalog modes, multi-traits, property runes and perspective — October 23, 2026
+
+Adds overview/management modes, independently filtered consumable/property-rune pools, searchable multi-trait controls, Storyteller-only player perspective and saved player selections. Property rune identity metadata is derived from pinned PF2E 8.6.1 equipment data; unrelated applied equipment and fundamental runes are excluded.
+
+Tests cover all/any trait intersections, consumable-only trait vocabulary, weapon/armor/accessory rune classification, duplicate prevention, player perspective permissions, returning to Storyteller, selection authorization/count limits and durable replay receipts. Browser tests exercise the actual template, trait chips, rune picker, mode toggle, player view and saved selections in a mocked host. Existing tree and Curio confidentiality/item-sync regressions remain in the gate.
+
+Local Node/model/permission tests, coverage floors and static checks pass. The complete Chromium gate runs in GitHub Actions because the macOS sandbox blocks local browser launch. In-app browser checks use a mock host. No live Foundry installation or actual PF2E/Dailies integration was tested. Choices are recorded; item distribution and automatic rune application are not implemented.
+
+---
+
 # v0.2.0 Curio and Benison catalogs — October 23, 2026
 
 New catalog model and UI are separate from the skill-tree implementation. Tests cover public-summary allowlisting, private details, permission revocation, stable item IDs, marked actor-copy updates, preservation of existing item rules and quantity, stale writes, partial synchronization failure recovery, gift/image validation, more than 100 gifts, catalog deduplication, global choice counts and combined item filters.

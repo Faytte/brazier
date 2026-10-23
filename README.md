@@ -1,4 +1,4 @@
-# Brazier — Flame Management (0.2.0)
+# Brazier — Flame Management (0.2.1)
 
 **Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
@@ -60,8 +60,17 @@ Skill trees never rely on Scene Notes, tokens, maps, characters, or a particular
 - **Gifts currently store text and source links.** Importing an automated effect does not automatically transfer its rule elements, actions or resources to the bearer. These require a future PF2E mechanics adapter; the source sheet remains available for reference.
 - Every player can see Curio names/icons. Descriptions/gifts live in a separate restricted journal document; the GM master is private. The generated world item is shared only with selected players. Giving it to an actor also shares its contents with that actor's owners. Revoking catalog access cannot erase a previously received item copy or knowledge already seen.
 - **Benison Boons** has Consumables, Runes, and Memories and Shrouds tabs. Consumables supports indexed search across accessible installed Item compendiums, filtered to PF2E consumable documents, with name, level range, category, rarity, trait and source filters. Add/remove entries in the curated list; duplicates are ignored.
-- Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selection/distribution is not implemented yet. Runes and Memories and Shrouds currently support named options with descriptive text; no rune automation or item granting occurs from these lists.
+- Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selections are now saved per player; item distribution is not automated. Runes has a property/accessory rune catalog with its own choice count. Memories and Shrouds supports named options. No rune etching or item granting occurs from these lists.
 - Catalog state uses world Journal Entries under the separate `brazier.catalog` flag. Curio public summaries contain only ID/name/icon/art; restricted details are separate. Curio item provenance uses `brazier.curioId`. Existing tree documents are unchanged. Research for future adapters is in [docs/research](docs/research/README.md).
+
+### Catalog modes and player perspective (v0.2.1)
+
+- Consumables and Runes open in **Overview** with current options and the global choice count. **Manage Options** exposes search, additions and removal. The sections keep independent filters.
+- Traits are searchable checkbox chips with readable labels, item counts and **all/any** matching. They come from actual items in the current consumable/rune pool. Rare valid traits remain available: PF2E 8.6.1 includes aura on Magnetic Suit/Wind Ocarina and additive1 on Toothwort Extract.
+- Property runes support weapon, armor, and item/accessory targets. Fundamental potency, striking, resilient and reinforcing runes are excluded. Identity metadata is pinned to PF2E 8.6.1. Regenerate it with `tools/build_rune_reference.py` against the upstream equipment source directory when updating PF2E; review the resulting categories.
+- The Storyteller-only **View as** selector spans every section, shows the selected player's published tree/Curio access, hides management, and offers **Return to Storyteller**. It never changes Foundry's logged-in user or session. External Foundry sheets still use the logged-in account.
+- Tree purchases and **Save Choices** in this mode make real changes for the selected player. Players receive choice controls without perspective or management controls. Player requests use server-authored message identity; the primary active Storyteller validates them. Durable receipts prevent an acknowledged request replay from overwriting later selections. Requests wait if no Storyteller is online.
+- Choices persist until changed; no daily reset, item distribution, or rune etching is performed. Consumables and Runes enforce separate global counts. Memories and Shrouds permits selecting its named options without a separately configured limit.
 
 ### Important limitations
 
