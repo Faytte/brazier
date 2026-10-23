@@ -8,7 +8,7 @@ class Doc{
  constructor(d){Object.assign(this,clone(d));this.id=`id${++sequence}`;this.documentName=d.type?'Item':'JournalEntry';this.system??={};}
  getFlag(s,k){return this.flags?.[s]?.[k];}
  testUserPermission(u){return readable(this,u);}
- async update(d){assert(game.user.isGM);for(const [k,v] of Object.entries(d)){const keys=k.split('.');let t=this;for(const part of keys.slice(0,-1))t=t[part]??={};t[keys.at(-1)]=clone(v);}return this;}
+ async update(d,options={}){assert(game.user.isGM);for(const [k,v] of Object.entries(d)){if(k==='ownership'&&options.recursive!==false){this.ownership={...this.ownership,...clone(v)};continue;}const keys=k.split('.');let t=this;for(const part of keys.slice(0,-1))t=t[part]??={};t[keys.at(-1)]=clone(v);}return this;}
  isOfType(type){return this.type===type;}
 }
 globalThis.game={user:users[0],users,system:{id:'pf2e'},journal:{filter:cb=>journals.filter(d=>readable(d,game.user)).filter(cb)},items,actors:[{items:actorItems}],packs:[]};
@@ -37,12 +37,12 @@ await assert.rejects(catalog.saveCurio(stale),/changed/);
 game.user=users[1];assert.equal(catalog.availableCurios()[0].locked,true);assert(!readable(items[0],game.user));
 game.user=users[2];assert.equal(catalog.availableCurios()[0].gifts.length,1);assert(readable(items[0],game.user));
 game.user=users[0];
-const itemUpdate=items[0].update.bind(items[0]);items[0].update=async d=>{if(d.name)throw new Error('write failed');return itemUpdate(d);};
+const itemUpdate=items[0].update.bind(items[0]);items[0].update=async(d,options)=>{if(d.name)throw new Error('write failed');return itemUpdate(d,options);};
 c.description='New private detail';let failure;try{await catalog.saveCurio(c);}catch(e){failure=e;}
 assert.match(failure.message,/saved, but synchronization failed/);c=failure.savedCurio;assert(c.updatedAt>stale.updatedAt);
 items[0].update=itemUpdate;await catalog.syncCurio(c.id);assert(items[0].system.description.value.includes('New private detail'));
 const failureDoc=journals.find(d=>d.getFlag('brazier','catalog').kind==='curio-detail');const update=failureDoc.update.bind(failureDoc);
-failureDoc.update=async d=>{if(d.name)throw new Error('detail failed');return update(d);};
+failureDoc.update=async(d,options)=>{if(d.name)throw new Error('detail failed');return update(d,options);};
 c.users=['alice'];try{await catalog.saveCurio(c);}catch(e){c=e.savedCurio;}
 assert.equal(failureDoc.ownership.bob,undefined,'failed detail publish leaves old permissions revoked');assert.equal(failureDoc.ownership.default,0);
 failureDoc.update=update;await catalog.syncCurio(c.id);
