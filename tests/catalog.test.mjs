@@ -3,6 +3,7 @@ import {clone} from '../scripts/model.mjs';
 import * as catalog from '../scripts/catalog.mjs';
 const journals=[],items=[],actorItems=[];let sequence=0;
 const users=[{id:'gm',isGM:true},{id:'alice',isGM:false},{id:'bob',isGM:false}];users.get=id=>users.find(u=>u.id===id);
+for(const user of users)if(!user.isGM)user.character={id:`hero-${user.id}`,uuid:`Actor.hero-${user.id}`,name:`${user.id} Hero`,type:'character',level:15};
 const readable=(d,u)=>u.isGM||(d.ownership[u.id]??d.ownership.default??0)>=2;
 class Doc{
  constructor(d){Object.assign(this,clone(d));this.id=`id${++sequence}`;this.documentName=d.type?'Item':'JournalEntry';this.system??={};}
@@ -15,7 +16,7 @@ globalThis.game={user:users[0],users,system:{id:'pf2e'},journal:{filter:cb=>jour
 globalThis.JournalEntry={async create(d){assert(game.user.isGM);const doc=new Doc(d);journals.push(doc);return doc;}};
 globalThis.Item={async create(d){const doc=new Doc(d);items.push(doc);return doc;}};
 globalThis.ui={notifications:{warn(){}}};
-const source=new Doc({name:'Healing Potion',type:'consumable',img:'icons/potion.webp',ownership:{default:2},system:{level:{value:1},traits:{rarity:'common'},category:'potion'}});
+const source=new Doc({name:'Healing Potion',type:'consumable',img:'icons/potion.webp',ownership:{default:2},system:{level:{value:1},traits:{rarity:'common',value:['consumable','healing']},category:'potion'}});
 globalThis.fromUuid=async uuid=>uuid==='Compendium.pf2e.equipment-srd.Item.potion'?source:null;
 let c=catalog.freshCurio();c.name='Moon Relic';c.description='PRIVATE SECRET';c.users=['alice'];c.gifts=[{...catalog.freshGift(),name:'Hidden Gift',description:'SECRET GIFT'}];
 c=await catalog.saveCurio(c);
@@ -108,3 +109,18 @@ game.user=users[0];
 const zeroAllowance=catalog.boonCatalog();zeroAllowance.consumableCount=0;await catalog.saveBoons(zeroAllowance);
 await assert.rejects(catalog.setBoonChoices('consumables',[b.consumables[0].uuid],'alice'),/Too many/);
 const restoredAllowance=catalog.boonCatalog();restoredAllowance.consumableCount=3;await catalog.saveBoons(restoredAllowance);
+const benisonModel=await import('../scripts/benison-model.mjs');
+assert.equal(benisonModel.normalizeTrait('additive1'),'additive');
+assert.equal(benisonModel.normalizeTrait('additive3'),'additive');
+assert.equal(benisonModel.normalizeTrait('deadly-d8'),'deadly-d8');
+const toothwort={name:'Toothwort Extract',type:'consumable',level:3,traits:['additive1','alchemical','consumable']};
+assert.equal(catalog.filterItems([toothwort],{traits:['additive']}).length,1);
+assert.equal(catalog.filterItems([toothwort],{traits:['additive','alchemical'],traitMode:'all'}).length,1);
+assert.deepEqual(toothwort.traits,['additive1','alchemical','consumable']);
+assert.deepEqual(benisonModel.normalizedTraits({traits:['additive','additive1','additive2']}),['additive']);
+assert(benisonModel.isBenisonConsumable(toothwort));
+assert(benisonModel.isBenisonConsumable({type:'weapon',traits:['consumable','bomb']}));
+assert(benisonModel.isBenisonConsumable({type:'ammo',traits:['consumable']}));
+assert(!benisonModel.isBenisonConsumable({type:'consumable',traits:['wand']}));
+assert.equal(benisonModel.characterLevel(users[1]),15);
+assert.equal(benisonModel.characterLevel({character:null}),null);

@@ -38,6 +38,7 @@ window.game={user:window.__users[0], users:window.__users, journal:{
   filter(cb){return window.__docs.filter(d=>window.game.user.isGM || ((d.ownership?.[window.game.user.id]??d.ownership?.default??0)>=2)).filter(cb)},
   [Symbol.iterator](){return window.__docs[Symbol.iterator]()}
 }, messages:{contents:[]}, modules:new Map([['brazier',{}]]),keybindings:{register(){}}};
+window.__users[1].character={id:'hero',uuid:'Actor.hero',name:'Alice Hero',type:'character',level:15};
 window.game.system={id:'pf2e'};window.game.items=[];window.game.actors=[];window.game.packs=[];
 window.ui={notifications:{info(){},warn(msg){window.__errors.push('NOTICE: '+msg)},error(msg){window.__errors.push('ERROR: '+msg)}}};
 window.Hooks={events:{},once(name,cb){(this.events[name]??=[]).push(cb)},on(name,cb){(this.events[name]??=[]).push(cb)}};
@@ -61,7 +62,7 @@ window.Item=class extends JournalEntry {
     if(key.startsWith('system.')){const parts=key.split('.');let target=this;for(const part of parts.slice(0,-1))target=target[part]??={};target[parts.at(-1)]=structuredClone(value);}
   }return this;}
 };
-window.__source=new Item({name:'Healing Potion',type:'consumable',img:'',ownership:{default:2},flags:{},system:{level:{value:1},category:'potion',traits:{rarity:'common',value:['healing','magical']},description:{value:'<p>Restore health.</p><section class="secret">GM ONLY</section>'}}});
+window.__source=new Item({name:'Healing Potion',type:'consumable',img:'',ownership:{default:2},flags:{},system:{level:{value:1},category:'potion',traits:{rarity:'common',value:['consumable','healing','magical']},description:{value:'<p>Restore health.</p><section class="secret">GM ONLY</section>'}}});
 window.fromUuid=async(uuid)=>uuid==='Compendium.pf2e.equipment-srd.Item.potion'?__source:null;
 window.__rune=new Item({name:'Flaming',type:'equipment',img:'',ownership:{default:2},flags:{},system:{usage:{value:'etched-onto-a-weapon'},level:{value:8},traits:{rarity:'common',value:['fire','magical']},description:{value:'Fire rune'}}});
 const potionUuid='Compendium.pf2e.equipment-srd.Item.potion';window.fromUuid=async(uuid)=>uuid===potionUuid?__source:uuid==='Compendium.pf2e.equipment-srd.Item.XszNvxnymWYRaoTp'?__rune:null;
@@ -88,10 +89,12 @@ model_url=dataurl((ROOT/'scripts/model.mjs').read_text())
 store_url=dataurl((ROOT/'scripts/store.mjs').read_text().replace('./model.mjs',model_url))
 rune_url=dataurl((ROOT/'scripts/rune-reference.mjs').read_text())
 perspective_url=dataurl((ROOT/'scripts/perspective.mjs').read_text())
-catalog_url=dataurl((ROOT/'scripts/catalog.mjs').read_text().replace('./model.mjs',model_url).replace('./rune-reference.mjs',rune_url))
-catalog_ui_url=dataurl((ROOT/'scripts/catalog-ui.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url))
-app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url).replace('./catalog-ui.mjs',catalog_ui_url).replace('./perspective.mjs',perspective_url))
-main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./app.mjs',app_url).replace('./store.mjs',store_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url))
+benison_model_url=dataurl((ROOT/'scripts/benison-model.mjs').read_text())
+catalog_url=dataurl((ROOT/'scripts/catalog.mjs').read_text().replace('./model.mjs',model_url).replace('./rune-reference.mjs',rune_url).replace('./benison-model.mjs',benison_model_url))
+catalog_ui_url=dataurl((ROOT/'scripts/catalog-ui.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url).replace('./benison-model.mjs',benison_model_url))
+app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url).replace('./catalog-ui.mjs',catalog_ui_url).replace('./perspective.mjs',perspective_url).replace('./benison-model.mjs',benison_model_url))
+benison_dailies_url=dataurl((ROOT/'scripts/benison-dailies.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url).replace('./benison-model.mjs',benison_model_url))
+main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./benison-dailies.mjs',benison_dailies_url).replace('./app.mjs',app_url).replace('./store.mjs',store_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url).replace('./benison-model.mjs',benison_model_url))
 with sync_playwright() as playwright:
     # Use Playwright's installed Chromium by default, or an explicit system browser.
     browser=playwright.chromium.launch(executable_path=os.environ.get('BRAZIER_CHROMIUM_PATH'),headless=True,args=['--no-sandbox'])
@@ -312,7 +315,35 @@ with sync_playwright() as playwright:
     page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.choices?.runes?.length===1)')
     page.locator('[data-act="return-storyteller"]').click()
     assert page.locator('[data-cat-act="catalog-mode"]').count()==2
-    print('Catalog overview/management, property rune exclusion, player perspective and saved player choices: PASSED')
+    page.locator('[data-cat-act="boon-section"][data-value="consumables"]').click()
+    page.locator('.brazier-quantity-settings summary').click()
+    page.locator('[data-cat-field="bands.highQuantity"]').fill('4')
+    page.locator('[data-cat-field="bands.middleQuantity"]').fill('5')
+    page.locator('[data-cat-field="bands.lowQuantity"]').fill('6')
+    page.locator('[data-cat-act="save-bands"]').click()
+    page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.boons?.quantityBands?.lowQuantity===6)')
+    page.evaluate("""async()=>{
+      const b=__docs.find(d=>d.getFlag('brazier','catalog')?.kind==='boons').getFlag('brazier','catalog').boons;
+      b.consumableCount=1;
+      for(const [id,level] of [['high',14],['middle',11],['low',10]])b.consumables.push({uuid:'Compendium.test.items.Item.'+id,name:id,level});
+      await __regressionApp.render({force:true});
+    }""")
+    page.locator('[data-view-as]').select_option('alice')
+    boxes=page.locator('[data-cat-field="choice.consumables"]')
+    boxes.nth(1).check()
+    assert boxes.nth(1).is_checked() and boxes.nth(0).is_disabled() and boxes.nth(2).is_disabled()
+    assert boxes.nth(1).locator('xpath=ancestor::tr').locator('.brazier-amount').inner_text()=='4'
+    boxes.nth(1).uncheck()
+    assert boxes.nth(0).is_enabled() and boxes.nth(2).is_enabled()
+    boxes.nth(2).check()
+    assert boxes.nth(2).locator('xpath=ancestor::tr').locator('.brazier-amount').inner_text()=='5'
+    boxes.nth(2).uncheck();boxes.nth(3).check()
+    assert boxes.nth(3).locator('xpath=ancestor::tr').locator('.brazier-amount').inner_text()=='6'
+    page.locator('[data-cat-act="save-choices"]').click()
+    page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.choices?.consumables?.[0]?.endsWith(".low"))')
+    assert page.locator('.brazier-quantity-settings').count()==0
+    page.locator('[data-act="return-storyteller"]').click()
+    print('Catalog management, player perspective, checkbox cap/re-enable, configurable bands, amount boundaries and saved player choices: PASSED')
     page.locator('[data-act="tab"][data-value="trees"]').click()
     page.locator('[data-act="new-tree"]').click()
     page.wait_for_function('(before)=>__docs.filter(d=>d.getFlag("brazier","data")?.kind==="master").length===before+1',arg=baseline)
