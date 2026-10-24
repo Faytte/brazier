@@ -90,11 +90,15 @@ export function benisonDaily(){
     condition:actor=>actor.type==="character"&&actor.isOwner&&(game.user.isGM||assignedCharacter(game.user)?.uuid===actor.uuid)&&(boonCatalog().consumables.length>0||Boolean(actor.getFlag(MODULE_ID,"benisonState"))||benisonItems(actor).length>0),
     rows:actor=>{
       const users=assignedPlayers(actor),b=boonCatalog();
-      const text=users.length!==1?"Assign exactly one player account to this character before preparing Benison consumables.":(()=>{
-        const user=users[0],selected=boonChoices(user).consumables,level=characterLevel(user);
-        return selected.length?selected.map(uuid=>{const item=b.consumables.find(i=>i.uuid===uuid);return item?`${escapeHTML(item.name)} × ${benisonAmount(level,item.level,b.quantityBands)??"?"}`:"A saved choice is no longer available; save choices again in Brazier.";}).join("<br>"):"No consumables selected. Save your selections in Brazier before daily preparation.";
-      })();
-      return [{type:"notify",slug:"consumables",label:"Benison",save:false,message:text}];
+      const notify=(message,index=0)=>({type:"notify",slug:`consumables-${index}`,label:"Benison",save:false,message});
+      if(users.length!==1)return [notify("Assign exactly one player account to this character before preparing Benison consumables.")];
+      const user=users[0],selected=boonChoices(user).consumables,level=characterLevel(user);
+      if(!selected.length)return [notify("No consumables selected. Save your selections in Brazier before daily preparation.")];
+      // Dailies notify messages are escaped text-input values, not HTML.
+      return selected.map((uuid,index)=>{
+        const item=b.consumables.find(i=>i.uuid===uuid);
+        return notify(item?`${item.name} × ${benisonAmount(level,item.level,b.quantityBands)??"?"}`:"A saved choice is no longer available; save choices again in Brazier.",index);
+      });
     },
     process:async({actor,messages})=>{
       try{
