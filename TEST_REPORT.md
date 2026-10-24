@@ -1,3 +1,11 @@
+# v0.3.1 Dailies summary formatting — October 24, 2026
+
+Dailies renders notify messages into escaped input values. The previous summary incorrectly joined items with HTML `<br>`, which appeared literally. Each consumable now has its own native notify row with a unique slug and plain-text name. Chat summaries retain HTML escaping for their HTML context.
+
+Regression checks cover multiple rows, unique slugs, no HTML separator, names containing ampersands/quotes/angle brackets, and the empty-selection message. Inventory creation and cleanup code are unchanged. Full existing offline QA remains required before release. No live Foundry test was performed by the publishing agent; the user reported successful preparation and supplied the formatting screenshot.
+
+---
+
 # v0.3.0 Benison consumable preparation — October 23, 2026
 
 Adds player checkboxes, cap/re-enable behavior, assigned-character Amount calculation, configurable level offsets and quantities, the deferred Additive family filter, and PF2e Dailies preparation grants with scoped cleanup. Consumable eligibility follows the consumable trait on consumables, bombs and ammunition.

@@ -1,4 +1,4 @@
-# Brazier — Flame Management (0.3.0)
+# Brazier — Flame Management (0.3.1)
 
 **Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
 
@@ -62,6 +62,10 @@ Skill trees never rely on Scene Notes, tokens, maps, characters, or a particular
 - **Benison Boons** has Consumables, Runes, and Memories and Shrouds tabs. Consumables supports indexed search across accessible installed Item compendiums, filtered to physical items carrying the consumable trait (including bombs and ammunition, excluding wands), with name, level range, category, rarity, trait and source filters. Add/remove entries in the curated list; duplicates are ignored.
 - Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selections are saved per player; daily consumable grants are described below. Runes has a property/accessory rune catalog with its own choice count. Memories and Shrouds supports named options. Runes and memories remain choices only; automatic rune etching is not implemented.
 - Catalog state uses world Journal Entries under the separate `brazier.catalog` flag. Curio public summaries contain only ID/name/icon/art; restricted details are separate. Curio item provenance uses `brazier.curioId`. Existing tree documents are unchanged. Research for future adapters is in [docs/research](docs/research/README.md).
+
+### Changes in v0.3.1
+
+- Each selected consumable appears on its own native PF2e Dailies notification row. Removes literal `<br>` separators and avoids double-escaping item names in the host text fields. Inventory and preparation behavior are unchanged.
 
 ### Daily Benison consumables (v0.3.0)
 
