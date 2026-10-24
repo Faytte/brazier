@@ -57,7 +57,16 @@ actor.setFlag=async()=>{throw Error('receipt');};await assert.rejects(prepareBen
 actor.setFlag=setFlag;const ids=benisonItems(actor).map(i=>i.id);await prepareBenison(actor);assert.deepEqual(benisonItems(actor).map(i=>i.id),ids);
 // Native rest may already delete temporary items; reset remains safe.
 actor.items=[purchased];await resetBenison({actor,removeItem(){throw Error('not expected');}});
-const daily=benisonDaily();assert(daily.condition(actor));assert.equal(daily.rows(actor)[0].type,'notify');let message;
+const daily=benisonDaily();assert(daily.condition(actor));
+const summaryRows=daily.rows(actor);
+assert.equal(summaryRows.length,2,'one native row per consumable');
+assert(summaryRows.every(row=>row.type==='notify'&&!row.message.includes('<br>')));
+assert.equal(new Set(summaryRows.map(row=>row.slug)).size,2);
+const originalName=catalog.consumables[0].name;catalog.consumables[0].name='Potion & \"Special\" <A>';
+assert.equal(daily.rows(actor)[0].message,'Potion & \"Special\" <A> × 7','plain names are escaped once by the host template');
+catalog.consumables[0].name=originalName;
+const savedChoices=choices.consumables;choices.consumables=[];assert.match(daily.rows(actor)[0].message,/No consumables/);choices.consumables=savedChoices;
+let message;
 await daily.process({actor,messages:{addRaw:m=>message=m}});assert(message.includes('Potion'));
 await daily.process({actor,messages:{addRaw:m=>message=m}});assert(message.includes('already'));
 let definition;game.dailies.api.registerCustomDailies=entries=>definition=entries[0];assert(registerBenisonDailies());assert.equal(definition.key,daily.key);assert(!registerBenisonDailies());
