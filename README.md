@@ -1,161 +1,91 @@
-# Brazier — Flame Management (0.3.1)
+# Brazier — Flame Management (0.4.0)
 
-**Brazier Flame Management.** A standalone, system-independent application with private and shared progression trees. This is an **initial functional release** for personal use, not a polished public release. All world state remains separate for each Foundry world.
+Brazier Flame Management is a campaign progression and preparation application for Foundry VTT, with PF2E integrations for Curios, Benison Boons and the native party stash. Skill trees also work independently of a game system. Each world's data stays in that world.
 
-## Install
+## Install or update
 
-For Molten Hosting, open your hosted Foundry Setup screen, choose **Add-on Modules → Install Module**, and paste this permanent Manifest URL:
+In Foundry Setup → Add-on Modules → Install Module, use this permanent Manifest URL (also suitable for Molten Hosting):
 
-`https://github.com/Faytte/brazier/releases/latest/download/module.json`
+```text
+https://github.com/Faytte/brazier/releases/latest/download/module.json
+```
 
-The manifest points to the matching versioned release ZIP. Foundry's manifest and download fields follow the [official module format](https://foundryvtt.com/article/module-development/).
+Existing installations can use Foundry's module update controls. Back up the world before updating. Enable Brazier in the world's Manage Modules settings; enable PF2e Dailies for daily Benison preparation. Open Brazier from the native flame tool under Token Controls, or press **Alt+B**.
 
-For manual installation:
+For manual installation, extract the versioned release ZIP into `Data/modules/brazier/` so that `module.json` sits directly in that folder. Restart Foundry after installation.
 
-1. **Back up your Foundry world.** This module creates Journal Entries to store trees and access-limited projections.
-2. Extract the release ZIP contents into a folder named `brazier` so that `module.json` is located inside your Foundry user data directory at `Data/modules/brazier/module.json`. The folder name must be `brazier`.
-3. Restart Foundry, then enable **Brazier** under **Game Settings → Manage Modules** for the V14 world.
-4. Select **Token Controls** in the left-hand scene toolbar, then click the **Brazier flame** tool. Foundry renders and positions this standard tool alongside the other token tools. Alternatively press **Alt+B**. Each player has their own button.
-5. As the Storyteller, select **New Tree** and **Tree Settings** to assign users, award points, and set tree visibility. GM sees all trees. Players see only the trees they're explicitly allowed to see.
+Declared compatibility is Foundry **14**, verified target **14.369**, based on API/source review and offline checks. **No live Foundry installation or actual PF2E/Dailies session has been tested by this development workflow.** Source review targets PF2E 8.6.1 and Dailies 4.23.1, with additional public V14 source review for native stash delegation.
 
-### Four sections
+## Skill Trees
 
-- **Skill Trees**: implemented.
-- **Benison Boons**: curated choices and daily consumable preparation.
-- **Curio**: public catalog, permission-restricted gifts and linked inventory items.
-- **Caravan**: placeholder.
+Storytellers can create freeform shared or personal progression trees, assign access, choose full/frontier/discovered visibility, arrange opaque talent nodes, and customize art and connectors. Players see only their permitted projection, inspect a talent and spend points through a GM-validated request. An active Storyteller processes player changes.
 
-### Tree editor (Storyteller)
+This version adds duplication with clean progression, local editor undo/redo, grid alignment, visible-talent search, minimum character levels, per-rank costs and source benefits. Refund requests go to Storyteller Requests under Caravan; dependent talents must be refunded first. JSON imports create new template trees and reset progression; exports preserve layout for reuse.
 
-- Create any number of named trees and give each a description.
-- Create talents via **Add Talent**. The first starter node is placed in the middle of the canvas; place subsequent nodes anywhere in 2D space by dragging them in edit mode.
-- The **Connect** tool: click the prerequisite talent, then click the dependent talent. Repeat the same connection to remove it. You may also check prerequisites in **Talent Properties**. Cyclic prerequisite relationships are blocked.
-- Click a talent to edit its name, description, icon, cost, rank cap, and prerequisites. You may select custom image paths using Foundry's FilePicker.
-- Drag empty canvas space to pan; use the mouse wheel to zoom; use **Center View** to recenter. Tree layouts are fully radial/freeform rather than fixed left-to-right.
-- Tree Settings configures access (**All Players**, **Selected Players**, **Storyteller Only**), fog of war (**Full**, **Frontier**, **Discovered**), progression (**Shared** or **Personal**), available points, currency label/icon, backgrounds, custom image, connector theme, connector color, and subtle glow strength.
-- Trees can be exported to JSON or imported as a **new template tree**. Imports deliberately reset spent points/unlocks and use a new tree ID. The import button is available while editing a tree.
+## Curio
 
-### Player experience and privacy
+Curio names and icons are public. Descriptions and revealed gifts are restricted to selected players. Use built-in icons or custom art, add custom or compendium-linked relic gifts, choose a bearer, and configure minor/major/grand gifts with level and milestone conditions.
 
-- Players are only given observer access to **their own per-tree projection Journal Entry**. Unassigned trees do not appear in the selector; they receive no corresponding projection document at all.
-- A separate GM-only master Journal Entry stores all nodes, unlocks, and player access rules. Player projections include only the currently visible nodes and metadata.
-- **Full**: show all nodes and their prerequisites.
-- **Frontier**: show unlocked talents and nodes whose prerequisites are already acquired. No other node names or secrets are in the projection.
-- **Discovered**: show only nodes with at least one purchased rank.
-- **Shared** progress: one point balance and unlocked ranks for everyone with access. **Personal** progress: separate point balance and unlocked ranks for each player.
-- Players cannot edit projection documents (observer permission). When purchasing a talent, the app creates a private Foundry chat request to the GM accounts. An active GM client validates the author, tree assignment, available points, prerequisites and rank cap against the **GM-only master** and commits the update. Pending requests are processed when the GM logs in.
-- The chat request is visible in the GM's chat history. It is intentionally not disguised or hidden. Requests are processed automatically by the GM client, **without manual approval** in this version.
+Saving creates or updates one stable world Item and marked actor copies. Give the world Item to a character through normal Foundry inventory controls. Source-linked mechanics require the opt-in setting below and explicit synchronization. Giving an Item to an actor shares its contents with that actor's owners; revoking catalog access cannot erase a copy or knowledge already received.
 
-### Storage notes
+## Benison Boons
 
-Each tree adds one GM-only world Journal Entry (`Brazier • [Name] [Storyteller]`) and one observer-only projection Journal Entry per permitted non-GM player (`Brazier • [Name]`). These entries are visible in the journal directory to authorized users and can be managed/backed up using Foundry's normal document mechanisms. **Do not manually adjust projection ownership or content**: Brazier maintains projections from the GM master. Removing the module does not automatically delete these Journal Entries.
+### Consumables
 
-Skill trees never rely on Scene Notes, tokens, maps, characters, or a particular game system. Curio inventory items and the consumable picker require PF2E. Most functions require an active Storyteller client for changes to propagate (the same as many GM-authoritative Foundry features).
+Storytellers curate eligible consumables from accessible Item compendiums using name, level, category, rarity, source and multi-trait filters. Overview shows Current Options, a global choice count and the player preparation roster. Manage Options handles search, additions and removal. The Additive filter matches its numbered family while preserving source traits.
 
-### Curio and Benison Boons (v0.2.0)
+Assign each player a PF2E character in **User Configuration**; ownership alone is not assignment. Players check up to the global number of choices, see the resulting Amount, then Save Choices. Unselected boxes disable at the cap and re-enable when a choice is removed. Removed options require explicit reconciliation; a lowered allowance does not silently replace a selection.
 
-- **Curio → New Curio**: enter a name, choose one of the same 20 icon themes used by talents, or browse/upload custom art. Add a private description and select the players allowed to read details.
-- Add any number of **Relic Gifts**, subject to Foundry document size limits. Each has a name, aspect, minor/major/grand tier, and effect/activation/frequency text. Use **Choose Compendium Gift**, load installed Item compendiums, search by name/source and select a gift to import its name/text. The picker supports optional relic-gift modules without requiring one. You can also enter a source Item UUID or write a fully custom gift. Imported GM-secret HTML sections are omitted.
-- **Save Curio & Sync Item** creates one PF2E equipment item in the world Items directory, or updates the existing item by its stable Brazier Curio ID. You can drag that item to a character. Later saves update names, descriptions and art on marked actor copies while preserving inventory state and manually authored rule elements. A copied Curio item remains linked to its catalog entry; duplicate templates with the same marker are reported rather than guessed at. Use Retry Item Sync after a partial failure.
-- **Gifts currently store text and source links.** Importing an automated effect does not automatically transfer its rule elements, actions or resources to the bearer. These require a future PF2E mechanics adapter; the source sheet remains available for reference.
-- Every player can see Curio names/icons. Descriptions/gifts live in a separate restricted journal document; the GM master is private. The generated world item is shared only with selected players. Giving it to an actor also shares its contents with that actor's owners. Revoking catalog access cannot erase a previously received item copy or knowledge already seen.
-- **Benison Boons** has Consumables, Runes, and Memories and Shrouds tabs. Consumables supports indexed search across accessible installed Item compendiums, filtered to physical items carrying the consumable trait (including bombs and ammunition, excluding wands), with name, level range, category, rarity, trait and source filters. Add/remove entries in the curated list; duplicates are ignored.
-- Set **Global number of consumable choices**, then click **Save Choice Count**. This is one number of player choices from the curated list, not stock or a per-item quantity. Selections are saved per player; daily consumable grants are described below. Runes has a property/accessory rune catalog with its own choice count. Memories and Shrouds supports named options. Runes and memories remain choices only; automatic rune etching is not implemented.
-- Catalog state uses world Journal Entries under the separate `brazier.catalog` flag. Curio public summaries contain only ID/name/icon/art; restricted details are separate. Curio item provenance uses `brazier.curioId`. Existing tree documents are unchanged. Research for future adapters is in [docs/research](docs/research/README.md).
+Quantity bands use item level relative to character level. Defaults: offset ≥ −1 grants 1, offsets −4 through −2 grant 2, and anything lower grants 3. The Storyteller can change both boundaries and all quantities.
 
-### Changes in v0.3.1
+Complete PF2e Dailies preparation to receive separate marked temporary stacks. Repeating preparation does not refill consumed items. Native temporary-item rest cleanup and Brazier's Dailies callback reset the cycle; the next preparation reconciles remaining marked stacks. Purchased inventory is not merged or deleted. Changes after successful preparation apply after the next rest. Assign exactly one player account to each preparing character.
 
-- Each selected consumable appears on its own native PF2e Dailies notification row. Removes literal `<br>` separators and avoids double-escaping item names in the host text fields. Inventory and preparation behavior are unchanged.
+### Runes
 
-### Daily Benison consumables (v0.3.0)
+Curate property runes separately from fundamental potency/striking/resilient/reinforcing runes. Players save rune choices and equipment targets. Compatibility messages explain unsupported targets, existing runes and capacity.
 
-- Enable **PF2e Dailies** alongside Brazier. This adapter targets PF2E 8.6.1 and Dailies 4.23.1 on Foundry 14.369. Other Brazier features remain available without Dailies.
-- Assign each player a PF2E character in Foundry User Configuration. Each Benison character must be assigned to exactly one player account. Player selections are per account; level and inventory come from that assigned character. The character must be owned by the account preparing it.
-- Players check consumables under **Current Options** and click **Save Choices**. Unchecked boxes grey out at the global choice limit and become available again when a selection is removed. The **Amount** column updates for checked items. An active Storyteller processes player save requests; Storyteller **View as** saves directly for that player.
-- Storyteller **Consumable quantity bands** configures two minimum offsets relative to character level and all three quantities. Defaults: offset ≥ −1 gives 1; offset −4 through −2 gives 2; anything below −4 gives 3. At character level 15: item levels 14, 13, 11 and 10 give 1, 2, 2 and 3 respectively. Minimums must descend; amounts are positive integers.
-- Complete preparation in **PF2e Dailies** to grant the saved selections. Quantities are recalculated from current character/source levels and current settings. Each grant is a separate marked temporary inventory stack; purchased items are not merged or changed. No alchemical infused trait is added to ordinary gifts.
-- PF2E removes native temporary items during **Rest for the Night**, as it does daily alchemical items. The Dailies rest callback resets Benison's cycle; the next preparation grants fresh choices and also cleans any remaining Brazier-marked stacks on that character. Unrelated inventory is preserved. Transferring a temporary item does not make it permanent; native PF2E rest cleanup still applies to its recipient.
-- Repeating preparation within the same cycle does not refill consumed gifts. Stable item IDs and a persistent actor receipt prevent retries from creating duplicate stacks; a partial write can be retried. Changed or unavailable saved choices produce an actionable error rather than a substitute. Restore valid choices before retrying preparation. Changes after successful preparation apply after the next rest.
-- Implementation and upstream lifecycle references: [daily preparation research](docs/research/benison-preparation.md). Automated checks use mocked documents and a mock browser host; no live Foundry installation was tested.
+The optional weapon adapter creates temporary, marked PF2E effect Items for a bounded supported rune set; it does not permanently etch or overwrite the weapon. Armor/accessory automation remains manual. See [development/integration notes](docs/DEVELOPMENT.md).
 
-### Catalog modes and player perspective (v0.2.1)
+### Memories and Shrouds
 
-- Consumables and Runes open in **Overview** with current options and the global choice count. **Manage Options** exposes search, additions and removal. The sections keep independent filters.
-- Traits are searchable checkbox chips with readable labels, item counts and **all/any** matching. They come from actual items in the current consumable/rune pool. Only traits on eligible consumable items appear. Additive is one filter family matching additive/additive1/additive2/additive3, including Toothwort Extract; original source traits remain intact.
-- Property runes support weapon, armor, and item/accessory targets. Fundamental potency, striking, resilient and reinforcing runes are excluded. Identity metadata is pinned to PF2E 8.6.1. Regenerate it with `tools/build_rune_reference.py` against the upstream equipment source directory when updating PF2E; review the resulting categories.
-- The Storyteller-only **View as** selector spans every section, shows the selected player's published tree/Curio access, hides management, and offers **Return to Storyteller**. It never changes Foundry's logged-in user or session. External Foundry sheets still use the logged-in account.
-- Tree purchases and **Save Choices** in this mode make real changes for the selected player. Players receive choice controls without perspective or management controls. Player requests use server-authored message identity; the primary active Storyteller validates them. Durable receipts prevent an acknowledged request replay from overwriting later selections. Requests wait if no Storyteller is online.
-- Choices persist until changed and are reused for each daily consumable preparation; automatic rune etching is not performed. Consumables and Runes enforce separate global counts. Memories and Shrouds permits selecting its named options without a separately configured limit.
+Memories are Storyteller-awarded persistent unlocks with reveal permissions and prerequisites. Shrouds are daily prepared choices with configurable capacity, level requirements and exclusive groups. Saving a loadout does not grant inventory early. Narrative entries need no mechanical source; linked feat/action/effect benefits use the optional grant layer.
 
-### Important limitations
+These are campaign mechanics configured by the Storyteller, not a claim that every entry is an official PF2E rule.
 
-- **Not yet tested inside a live Foundry installation.** This build's JavaScript syntax and rule/model tests pass, and its module format follows published V14 APIs. Test it in a disposable V14 world before enabling in either campaign.
-- Does not award effects, execute macros, or change character sheets upon unlock. Talents track progression only in this release.
-- The Storyteller can delete trees. No undo history yet; export backups often.
-- Requests generate private whisper chat messages. Hidden future nodes stay out of player projections, but an authorized player can reveal/redistribute the content they are allowed to see (as with other Foundry documents).
-- The native Journal sidebar still shows authorized projection Journal Entries. This is a deliberate tradeoff for using core document ownership permissions securely without depending on a third-party server or socket extension.
-- The permanent manifest URL above supports installation and future updates after release publication. The manifest declares Foundry **14.369** as its compatibility target. This is based on API review and offline QA; live Foundry operation has not been tested.
-- Icons use Foundry's built-in Font Awesome library; five original vector background presets ship in `assets/`. Custom images can be chosen through the Foundry FilePicker.
+## Caravan
 
-### Developer checks
+Caravan opens **Carriage Outfit**, with Storyteller-authored visible equipment/facility entries. Projects provide GM-reviewed progress tracks. Storyteller Requests retains talent refund review and recovery for previously saved supply requests. Overview, People, player My Requests and Caravan Activity tabs are removed; existing underlying records are retained.
 
-From the unpacked **source archive** (Node 22+, Python 3.10+, Playwright with Chromium to run the browser simulation):
+**Cargo & Treasury ↗ opens the actual native PF2E Party stash window on its inventory tab.** There is no reduced Brazier inventory page. Use that native window for drag-and-drop to/from characters, quantity/stack/container handling, coin tools and party distribution. PF2E controls those operations and their permissions. The active Party stash is used automatically; an optional Party/loot override is in Caravan Settings. Missing overrides do not silently redirect transfers.
 
-```bash
+The native stash always acts as the signed-in Foundry account. Its action is disabled while a GM is using View As; return to Storyteller or sign in as the player to use that account's actual permissions. Brazier does not impersonate players or weaken ownership. See [native stash source review](docs/research/native-party-stash.md).
+
+## Optional mechanical benefits
+
+**New source-linked grants are disabled by default.** Under Memories and Shrouds → Campaign Settings, a Storyteller may enable supported mechanical grants after reviewing the integration notes. Existing daily consumable grants do not require this new opt-in.
+
+Supported sources are PF2E feat, action and effect Items; unresolved ChoiceSet sources require configuration first. Stable actor/scope/source markers separate permanent Memory/Curio/talent grants from daily Shroud/rune grants. Synchronization is recoverable and scoped to marked Items. Review marked Items after manual customization; markers identify provenance, not an automatic merge of user edits. Curio bearer/reveal changes require explicit benefit synchronization.
+
+## Data, privacy and rollback
+
+Trees, catalogs and campaign state use world Journal Entries. Storyteller masters are private; players receive allowlisted observer projections. Do not manually edit projection ownership. Requests use Foundry-authored message identity and durable receipts. Player requests may wait until a Storyteller is online.
+
+Base 1 trees, Curios and boon selections are preserved. Legacy Memory options migrate lazily into the additive campaign schema without deleting the old catalog documents. Campaign JSON export/import restores configuration/entitlements while preserving current transaction receipts, requests and activity; it does not restore actor inventory.
+
+Back up the world before upgrade or rollback. Returning to v0.3.1 does not undo actor inventory changes from experimental grants or transfers. Inspect those marked Items before reverting; do not delete unrelated inventory. Previously seen private content cannot be made unknown again by permission changes.
+
+## Development and verification
+
+```sh
 python -m pip install -r requirements-dev.txt
 python -m playwright install chromium
 python tests/run_qa.py
 ```
 
-See [RELEASING.md](RELEASING.md) for repository organization, packaging, and future release steps.
+The complete offline gate includes syntax, Node model/document tests and coverage floors, static package checks, development-launcher regressions and browser interaction scenarios using production HTML/CSS/JS with simulated Foundry APIs. `--core-only` explicitly runs only the non-browser portion and never reports the full gate passed.
 
-The offline QA suite covers including 3,478 deterministic randomized/malformed-input assertions, simulated document permission checks for several users, concurrent purchase serialization, repeated-request prevention, access revocation, a headless Chromium UI exercise (real pointer events, pan, zoom, editor persistence and launcher hook), import/manifest/static asset checks, and JS syntax.
+Run `python tools/preview_server.py` and open http://127.0.0.1:8765/ for disposable Storyteller/player/unassigned/empty/large-catalog fixtures. Run UI Checks verifies repeatable browser flows. The preview labels native sheet handoff as simulated; it does not fabricate actual PF2E inventory behavior. No Foundry license is needed for this preview.
 
-**Important boundary:** the browser test runs the *real Brazier scripts and stylesheet*, but supplies a simulated Foundry host. No licensed V14 server/client was available in this build environment. No claim of successful live Foundry integration, validated ownership enforcement by the actual Foundry server, or zero-defect release is made. The manifest compatibility target is 14.369; this does not represent a completed live Foundry test. See `TEST_REPORT.md` in source and install archives.
+On macOS environments that block Chromium's multiprocess startup, `BRAZIER_CHROMIUM_SINGLE_PROCESS=1` enables a single-process headless test fallback; `BRAZIER_CHROMIUM_PATH` can select an installed Chromium executable. Default CI uses the ordinary multiprocess browser.
 
-### Changes in v0.1.1
-
-- Added strict validation for imported and edited trees, including point balances, player assignments, rank limits, node properties, supported cosmetics, and prerequisite cycles.
-- Serialized tree writes and purchases; stale GM edits now report conflicts instead of overwriting more recent changes.
-- A projection sync failure after saving no longer triggers a retry that could double-charge a purchase. A Storyteller world reload retries projections.
-- Fixed drag vs click behavior under browser pointer capture, preventing missing or duplicate talent selection.
-- Error handling for imports now displays actionable Foundry notifications; imports are size limited.
-- Expanded offline regression coverage, including browser-based interaction tests and packaging audits.
-
-### Design defaults
-
-The interface uses matte charcoal, restrained copper/bronze accents, small side rails and inspectors, original dark vector backgrounds, and minimal automatic line glow. Talent graphs permit free placement in all directions with an initial node at (0, 0).
-
-### Changes in v0.1.2 (DCC-guided expanded QA)
-
-- Reproduced and fixed broken cross-world import caused by stale revision timestamps; failed imports now clean up the provisional master record.
-- Reproduced and fixed prerequisite checkboxes incorrectly updating a talent with a Boolean value.
-- Rejects prototype-reserved talent IDs and invalid document revision timestamps.
-- Adds persistent request receipts on the master tree so a failed chat acknowledgment followed by a retry cannot charge talent points twice.
-- Editor-only talent notes and internal purchase receipt IDs are removed from player-facing tree projections.
-- Serializes tree deletion with outstanding purchases/saves to prevent orphan projection documents.
-- Prevents duplicate UI event listeners when an ApplicationV2 part is rerendered without replacing its root.
-- Relocates an existing launcher into the Foundry sidebar when its navigation becomes available after the module initializes.
-- Added Playwright tests for XSS escaping, the launcher, rerenders, physical click/drag, window resizing, and the existing canvas UI.
-- Added DCC-style coverage measurement and thresholds using Node 22's built-in V8 coverage, without requiring Vitest or a network install.
-
-**Not tested:** proprietary Foundry runtime `DataModel` schemas and real multiplayer networking, which require the licensed application or its `common/` code; this package has never been installed into Foundry. DCC's real integration/E2E tiers were studied, but cannot be executed as authentic Foundry tests in this environment. ApplicationV2 template compilation and Foundry server permission filtering are consequently **not certified**. The browser test uses real Brazier JS/CSS on a mocked host and is not a substitute for Foundry E2E.
-
-### Changes in v0.1.3
-
-- Shortened the module synopsis to “Brazier Flame Management”.
-- Added an explicit Foundry 14.369 compatibility declaration. The previous release omitted `compatibility.verified`, leaving the compatibility badge without a declared target.
-- Preserved all existing runtime code and assets. Validation remains offline QA and public API review; no live Foundry installation was tested.
-
-### Changes in v0.1.4
-
-- Retains the application template wrapper so New Tree, section tabs, and other delegated controls receive clicks.
-- Keeps an independent floating flame launcher outside hidden/replaced sidebar containers, using an SVG icon that does not depend on the Font Awesome font.
-- Replaces the browser fixture with the real Handlebars template and adds physical-click regression coverage for section tabs, New Tree, Add Talent and Tree Settings.
-- Offline tests still use a simulated Foundry host; actual Foundry operation has not been tested by the publishing agent.
-
-### Changes in v0.1.5
-
-- Registers the Brazier flame as a native button tool under Token Controls using Foundry’s `getSceneControlButtons` hook. Removes the floating launcher and its custom positioning/styles. Available to GMs and players; Alt+B remains available.
-- Makes locked talent symbols fully opaque so connecting lines do not show through them.
-- Adds offline regression checks for native tool registration/opening, existing tool preservation, player visibility, repeat registration, and talent opacity.
+See [TEST_REPORT.md](TEST_REPORT.md) for measured results and boundaries, [CHANGELOG.md](CHANGELOG.md) for release changes, [development notes](docs/DEVELOPMENT.md) for remaining roadmap work, and [RELEASING.md](RELEASING.md) for packaging. Optional [native development tools](tools/dev/README.md) remain available for an appropriately licensed test environment; no runtime or license data ships with this module.

@@ -27,14 +27,14 @@
       {{#if hasTree}}
         <div class="brazier-canvasbar">
           <div class="brazier-tree-heading"><strong>{{currentName}}</strong><small>{{currentDescription}}</small></div>
-          <div class="brazier-canvas-actions"><span class="brazier-points"><i class="fa-solid {{pointIconClass}}"></i> {{pointCount}} <span>{{currency}}</span></span>
+          <div class="brazier-canvas-actions"><button type="button" data-act="find-node">Find Talent</button><span class="brazier-points"><i class="fa-solid {{pointIconClass}}"></i> {{pointCount}} <span>{{currency}}</span></span>
             {{#if gm}}<button type="button" data-act="edit-toggle" title="Toggle Storyteller editing"><i class="fa-solid fa-pen-to-square"></i> {{#if editing}}Done Editing{{else}}Edit Tree{{/if}}</button>{{/if}}
             <button type="button" data-act="fit" title="Recenter tree"><i class="fa-solid fa-crosshairs"></i></button>
           </div>
         </div>
         {{#if editing}}
         <div class="brazier-editor-bar">
-          <button type="button" data-act="add-node"><i class="fa-solid fa-plus"></i> Add Talent</button>
+          <button type="button" data-act="undo" title="Undo last local editor change">Undo</button><button type="button" data-act="redo" title="Redo local editor change">Redo</button><button type="button" data-act="duplicate-tree">Duplicate</button><button type="button" data-act="snap-nodes">Align to Grid</button><button type="button" data-act="add-node"><i class="fa-solid fa-plus"></i> Add Talent</button>
           <button type="button" data-act="link-mode" title="Click a prerequisite node, then click its dependent node"><i class="fa-solid fa-link"></i> Connect</button>
           <button type="button" data-act="tree-settings"><i class="fa-solid fa-sliders"></i> Tree Settings</button>
           <button type="button" data-act="export"><i class="fa-solid fa-file-export"></i> Export</button>

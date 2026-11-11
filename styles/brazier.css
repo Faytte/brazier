@@ -166,3 +166,28 @@
 .brazier-quantity-settings summary{cursor:pointer;color:var(--bz-bright);}
 .brazier-quantity-settings table{width:100%;margin:10px 0;}
 .brazier-quantity-settings th,.brazier-quantity-settings td{padding:7px;text-align:left;}
+/* Campaign catalogs use the same dark surfaces as the talent canvas. */
+.brazier-root .brazier-campaign{min-height:0;flex:1;display:flex;flex-direction:column;overflow:hidden}
+.brazier-root .brazier-campaign>.brazier-catalog-body{overflow:auto;flex:1;padding:24px 28px}
+.brazier-root .brazier-eyebrow{color:#b9986b;text-transform:uppercase;font-size:10px;letter-spacing:.16em}
+.brazier-root .brazier-status{display:inline-flex;padding:3px 8px;border:1px solid #514638;border-radius:20px;font-size:11px;color:#ccbca2;white-space:nowrap}
+.brazier-root .brazier-status.good{border-color:#416754;color:#a2ccaf}
+.brazier-root .brazier-badges,.brazier-root .brazier-card-actions{display:flex;gap:7px;flex-wrap:wrap;align-items:center;margin:8px 0}
+.brazier-root .brazier-card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(330px,100%),1fr));gap:14px;margin:16px 0}
+.brazier-root .brazier-record-card{display:flex;gap:16px;align-items:flex-start;border:1px solid #38332d;border-radius:8px;padding:18px;background:#191b1f;min-width:0}
+.brazier-root .brazier-record-card>div{min-width:0;flex:1}.brazier-root .brazier-record-card h3{margin:0 0 8px}
+.brazier-root .brazier-card-icon{width:46px;height:46px;object-fit:cover;border:1px solid #65523b;border-radius:7px;background:#202124;flex-shrink:0}
+.brazier-root .brazier-search-row{display:flex;align-items:flex-end;gap:10px;margin:12px 0}.brazier-root .brazier-search-row>.brazier-field{flex:1;margin:0}
+.brazier-root .brazier-entry-editor{background:#202024;border:1px solid #806c4e;padding:18px;border-radius:8px;margin:18px 0}
+.brazier-root .brazier-panel-details{border:1px solid #4a4034;border-radius:6px;padding:13px;margin:16px 0}.brazier-root summary{cursor:pointer;color:#d9c19b;font-weight:600}
+.brazier-root .brazier-hub-banner{display:flex;align-items:center;gap:24px;padding:25px;border:1px solid #5a4935;border-radius:10px;background:linear-gradient(120deg,#342a20,#1a1c20);margin:14px 0 22px}
+.brazier-root .brazier-hub-banner>img{width:90px;height:90px;flex-shrink:0;border:0}.brazier-root .brazier-hub-banner h3{font-size:23px;margin:0}
+.brazier-root .brazier-stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0 25px}.brazier-root .brazier-stat-grid article{background:#191b1f;border:1px solid #39332c;padding:18px;text-align:center;border-radius:7px}
+.brazier-root .brazier-stat-grid strong{display:block;font-size:27px;color:#d1af78}.brazier-root .brazier-stat-grid span{font-size:12px;color:#b5b1a9}
+.brazier-root .brazier-list-row{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #383632;padding:10px 0}.brazier-root .brazier-list-row>span{color:#b5b1a9}
+.brazier-root .brazier-table-wrap{overflow:auto}.brazier-root .brazier-data-table{width:100%;border-collapse:collapse;background:#191b1f}.brazier-root .brazier-data-table th,.brazier-root .brazier-data-table td{text-align:left;border-bottom:1px solid #383632;padding:12px}
+.brazier-root .brazier-data-table th{color:#d7ba8b;font-size:12px}.brazier-root .brazier-history article{display:grid;grid-template-columns:145px 1fr auto;align-items:center;gap:9px;padding:12px 0;border-bottom:1px solid #353330}.brazier-root .brazier-history time,.brazier-root .brazier-history small{font-size:11px;color:#9a958c}.brazier-root .brazier-history small{grid-column:2}
+.brazier-root progress{width:100%;accent-color:#b9986b;height:10px;margin:12px 0}.brazier-root .brazier-editor-bar{flex-wrap:wrap}
+@media(max-width:850px){.brazier-root .brazier-stat-grid{grid-template-columns:repeat(2,1fr)}.brazier-root .brazier-hub-banner{padding:16px;gap:15px}.brazier-root .brazier-campaign>.brazier-catalog-body{padding:16px}.brazier-root .brazier-history article{grid-template-columns:1fr auto}.brazier-root .brazier-history time{grid-column:1/-1}.brazier-root .brazier-history small{grid-column:1}.brazier-root .brazier-subtabs{flex-wrap:wrap}}
+
+.brazier-root .brazier-campaign .brazier-section-heading>div:first-child{display:block}.brazier-root .brazier-campaign .brazier-section-heading h2{margin:6px 0 0}

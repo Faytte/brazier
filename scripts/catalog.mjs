@@ -14,14 +14,17 @@ const queues=new Map();
 function serial(key,fn){const next=(queues.get(key)??Promise.resolve()).catch(()=>{}).then(fn);queues.set(key,next);void next.finally(()=>{if(queues.get(key)===next)queues.delete(key);}).catch(()=>{});return next;}
 export const escapeHTML=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 export function assetPath(value){return typeof value==="string"&&value.length<500&&!/[<>"'`\\\x00-\x1f\x7f]/.test(value)&&!/^\s*(?:[a-z]+:)/i.test(value.replace(/^https?:/i,""))?value:"";}
-export function freshCurio(){return {schema:1,id:uid(),name:"New Curio",icon:"gem",iconUrl:"",description:"",users:[],gifts:[],updatedAt:0};}
-export function freshGift(){return {id:uid(),name:"New Relic Gift",aspect:"",tier:"minor",description:"",sourceUuid:""};}
+export function freshCurio(){return {schema:1,id:uid(),name:"New Curio",icon:"gem",iconUrl:"",description:"",users:[],gifts:[],bearerUuid:"",tags:"",updatedAt:0};}
+export function freshGift(){return {id:uid(),name:"New Relic Gift",aspect:"",tier:"minor",description:"",sourceUuid:"",minimumLevel:0,milestone:"",unlocked:false,revealed:true,automation:"narrative"};}
 export function validateCurio(c){
   const str=(v,max,blank=true)=>typeof v==="string"&&v.length<=max&&(blank||v.trim().length>0);
   if(!c||c.schema!==1||!str(c.id,128,false)||!str(c.name,120,false)||!str(c.description,20000)||!Object.hasOwn(ICONS,c.icon)||!str(c.iconUrl,499)||assetPath(c.iconUrl)!==c.iconUrl||!Number.isSafeInteger(c.updatedAt)||c.updatedAt<0)throw new Error("Invalid Curio fields or image path.");
   if(!Array.isArray(c.users)||c.users.some(id=>!str(id,128,false))||new Set(c.users).size!==c.users.length)throw new Error("Invalid Curio permissions.");
   if(!Array.isArray(c.gifts)||new Set(c.gifts.map(g=>g.id)).size!==c.gifts.length)throw new Error("Invalid relic gift list.");
   for(const g of c.gifts)if(!str(g.id,128,false)||!str(g.name,120,false)||!str(g.aspect,120)||!["minor","major","grand"].includes(g.tier)||!str(g.description,20000)||!str(g.sourceUuid,512)||g.sourceUuid&&!/^(?:Compendium\.[\w.-]+|Item\.[\w-]+)$/.test(g.sourceUuid))throw new Error("Invalid relic gift fields.");
+  if(c.bearerUuid!==undefined&&(typeof c.bearerUuid!=="string"||c.bearerUuid&&!/^Actor\.[\w-]+$/.test(c.bearerUuid)))throw new Error("Invalid Curio bearer.");
+  if(c.tags!==undefined&&!str(c.tags,500))throw new Error("Invalid Curio tags.");
+  for(const g of c.gifts){if(g.minimumLevel!==undefined&&(!Number.isInteger(g.minimumLevel)||g.minimumLevel<0||g.minimumLevel>30)||g.automation!==undefined&&!["narrative","source"].includes(g.automation)||g.revealed!==undefined&&typeof g.revealed!=="boolean"||g.unlocked!==undefined&&typeof g.unlocked!=="boolean"||g.milestone!==undefined&&!str(g.milestone,120))throw new Error("Invalid gift progression.");}
   if(JSON.stringify(c).length>1_500_000)throw new Error("Curio exceeds the document size limit.");
   return c;
 }
@@ -39,7 +42,7 @@ function itemMatches(item,id){return item.getFlag(MODULE_ID,"curioId")===id;}
 function curioItems(id){return [...(game.items??[])].filter(i=>itemMatches(i,id));}
 export function curioDescription(c){
   const p=t=>escapeHTML(t).replace(/\n/g,"<br>");
-  return `<section class="brazier-curio-description"><p>${p(c.description)}</p>${c.gifts.map(g=>`<h3>${p(g.name)}</h3><p>${p(g.tier)} gift${g.aspect?` · ${p(g.aspect)}`:""}</p><p>${p(g.description)}</p>${g.sourceUuid?`<p>@UUID[${g.sourceUuid}]{Gift source}</p>`:""}`).join("")}</section>`;
+  return `<section class="brazier-curio-description"><p>${p(c.description)}</p>${c.gifts.filter(g=>g.revealed!==false).map(g=>`<h3>${p(g.name)}</h3><p>${p(g.tier)} gift${g.aspect?` · ${p(g.aspect)}`:""}</p><p>${p(g.description)}</p>${g.sourceUuid?`<p>@UUID[${g.sourceUuid}]{Gift source}</p>`:""}`).join("")}</section>`;
 }
 export async function saveCurio(input){
   gm();const c=clone(input);validateCurio(c);
@@ -70,7 +73,7 @@ async function revokeCurio(id){
 }
 async function publishCurio(c){
   const ownership={default:0,...Object.fromEntries(c.users.map(id=>[id,2]))};
-  await upsertJournal("curio-detail",c.id,`Brazier Curio • ${c.name} [Details]`,ownership,{detail:{description:c.description,gifts:clone(c.gifts)}});
+  await upsertJournal("curio-detail",c.id,`Brazier Curio • ${c.name} [Details]`,ownership,{detail:{description:c.description,gifts:clone(c.gifts.filter(g=>g.revealed!==false)),bearerUuid:c.bearerUuid??""}});
   // The publicly readable document contains only these explicitly selected fields.
   await upsertJournal("curio-public",c.id,`Brazier Curio • ${c.name}`,{default:2},{summary:{id:c.id,name:c.name,icon:c.icon,iconUrl:c.iconUrl}});
   if(game.system?.id!=="pf2e")return;
@@ -131,7 +134,7 @@ export async function addRune(uuid){
   gm();const item=await fromUuid(uuid),kind=item&&runeKind(item);
   if(!kind)throw new Error("Choose a property or accessory rune; fundamental runes are excluded.");
   const b=boonCatalog();if(b.runes.some(i=>i.uuid===uuid))return b;
-  b.runes.push({uuid,name:item.name,img:assetPath(item.img),level:item.system.level.value,category:kind,rarity:item.system.traits.rarity});return saveBoons(b);
+  b.runes.push({uuid,name:item.name,img:assetPath(item.img),level:item.system.level.value,category:kind,slug:item.system.slug??item.slug??"",rarity:item.system.traits.rarity});return saveBoons(b);
 }
 export function boonChoices(user=game.user){
   if(!game.user.isGM)user=game.user;

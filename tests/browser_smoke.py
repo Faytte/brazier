@@ -26,86 +26,20 @@ def server():
         try: yield f'http://127.0.0.1:{srv.server_address[1]}'
         finally: srv.shutdown();worker.join(timeout=2)
 
-BOOTSTRAP = r'''
-window.__errors=[];
-window.addEventListener('error',e=>window.__errors.push(e.message));
-window.addEventListener('unhandledrejection',e=>window.__errors.push(String(e.reason)));
-window.__docs=[];
-window.__users=[{id:'gm',name:'GM',isGM:true,active:true},{id:'alice',name:'Alice',isGM:false,active:true}];
-window.__users.get=function(id){return this.find(x=>x.id===id)};
-window.__users.has=function(id){return this.some(x=>x.id===id)};
-window.game={user:window.__users[0], users:window.__users, journal:{
-  filter(cb){return window.__docs.filter(d=>window.game.user.isGM || ((d.ownership?.[window.game.user.id]??d.ownership?.default??0)>=2)).filter(cb)},
-  [Symbol.iterator](){return window.__docs[Symbol.iterator]()}
-}, messages:{contents:[]}, modules:new Map([['brazier',{}]]),keybindings:{register(){}}};
-window.__users[1].character={id:'hero',uuid:'Actor.hero',name:'Alice Hero',type:'character',level:15};
-window.game.system={id:'pf2e'};window.game.items=[];window.game.actors=[];window.game.packs=[];
-window.ui={notifications:{info(){},warn(msg){window.__errors.push('NOTICE: '+msg)},error(msg){window.__errors.push('ERROR: '+msg)}}};
-window.Hooks={events:{},once(name,cb){(this.events[name]??=[]).push(cb)},on(name,cb){(this.events[name]??=[]).push(cb)}};
-window.ChatMessage={getSpeaker(){return{}},async create(){return{}}};
-window.JournalEntry=class {
-  constructor(data){this.id='j'+(window.__docs.length+1);this.name=data.name;this.flags=structuredClone(data.flags);this.ownership=structuredClone(data.ownership)}
-  static async create(data){const doc=new JournalEntry(data);window.__docs.push(doc);return doc}
-  getFlag(scope,key){return this.flags?.[scope]?.[key]}
-  testUserPermission(user,perm){return user.isGM || (this.ownership?.[user.id]??this.ownership?.default??0)>=2}
-  async update(data){this.name=data.name??this.name;this.ownership=data.ownership??this.ownership;
-    for(const [key,val] of Object.entries(data))if(key.startsWith('flags.')){
-       const [,scope,flag]=key.split('.');this.flags[scope]??={};this.flags[scope][flag]=structuredClone(val)}return this}
-  async delete(){window.__docs.splice(window.__docs.indexOf(this),1)}
-};
-window.Item=class extends JournalEntry {
-  constructor(data){super(data);this.id='item'+(game.items.length+1);this.type=data.type;this.img=data.img;this.system=structuredClone(data.system);this.documentName='Item';this.sheet={render:async()=>{}};}
-  static async create(data){const item=new Item(data);game.items.push(item);return item;}
-  isOfType(type){return this.type===type;}
-  async update(data){await super.update(data);for(const [key,value] of Object.entries(data)){
-    if(key==='img')this.img=value;
-    if(key.startsWith('system.')){const parts=key.split('.');let target=this;for(const part of parts.slice(0,-1))target=target[part]??={};target[parts.at(-1)]=structuredClone(value);}
-  }return this;}
-};
-window.__source=new Item({name:'Healing Potion',type:'consumable',img:'',ownership:{default:2},flags:{},system:{level:{value:1},category:'potion',traits:{rarity:'common',value:['consumable','healing','magical']},description:{value:'<p>Restore health.</p><section class="secret">GM ONLY</section>'}}});
-window.fromUuid=async(uuid)=>uuid==='Compendium.pf2e.equipment-srd.Item.potion'?__source:null;
-window.__rune=new Item({name:'Flaming',type:'equipment',img:'',ownership:{default:2},flags:{},system:{usage:{value:'etched-onto-a-weapon'},level:{value:8},traits:{rarity:'common',value:['fire','magical']},description:{value:'Fire rune'}}});
-const potionUuid='Compendium.pf2e.equipment-srd.Item.potion';window.fromUuid=async(uuid)=>uuid===potionUuid?__source:uuid==='Compendium.pf2e.equipment-srd.Item.XszNvxnymWYRaoTp'?__rune:null;
-game.packs=[{documentName:'Item',collection:'pf2e.equipment-srd',visible:true,metadata:{label:'PF2E Equipment'},getIndex:async()=>[{_id:'potion',name:'Healing Potion',type:'consumable',system:__source.system},{_id:'XszNvxnymWYRaoTp',name:'Flaming',type:'equipment',system:__rune.system},{_id:'fundamental',name:'Weapon Potency +1',type:'equipment',system:{usage:{value:'etched-onto-a-weapon'},level:{value:2},traits:{value:['magical']}}}]}];
-window.foundry={applications:{api:{
-  ApplicationV2:class {
-    constructor(options={}){this.options=options;this.rendered=false;this.element=document.createElement('div');this.element.className='brazier-window';this.element.style.width='1160px';this.element.style.height='750px';document.body.appendChild(this.element)}
-    async _prepareContext(){return{}}
-    async _onRender(){}
-    async render(){
-      const context=await this._prepareContext({});
-      const holder=document.createElement('div');holder.innerHTML=Handlebars.compile(window.__template)(context);
-      const part=holder.firstElementChild;
-      // Model root-part child replacement, which the former fixture did not exercise.
-      this.element.replaceChildren(...(this.constructor.PARTS.body.root?[...part.childNodes]:[part]));
-      this.rendered=true;await this._onRender(context,{});return this;
-    }
-  },HandlebarsApplicationMixin:Base=>Base}, apps:{FilePicker:class{async render(){}}}}};
-'''
+BOOTSTRAP = (ROOT/'tests/preview/host.js').read_text()
 
-def dataurl(source):
-    return 'data:text/javascript;base64,'+base64.b64encode(source.encode('utf-8')).decode('ascii')
-model_url=dataurl((ROOT/'scripts/model.mjs').read_text())
-store_url=dataurl((ROOT/'scripts/store.mjs').read_text().replace('./model.mjs',model_url))
-rune_url=dataurl((ROOT/'scripts/rune-reference.mjs').read_text())
-perspective_url=dataurl((ROOT/'scripts/perspective.mjs').read_text())
-benison_model_url=dataurl((ROOT/'scripts/benison-model.mjs').read_text())
-catalog_url=dataurl((ROOT/'scripts/catalog.mjs').read_text().replace('./model.mjs',model_url).replace('./rune-reference.mjs',rune_url).replace('./benison-model.mjs',benison_model_url))
-catalog_ui_url=dataurl((ROOT/'scripts/catalog-ui.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url).replace('./benison-model.mjs',benison_model_url))
-app_url=dataurl((ROOT/'scripts/app.mjs').read_text().replace('./model.mjs',model_url).replace('./store.mjs',store_url).replace('./catalog-ui.mjs',catalog_ui_url).replace('./perspective.mjs',perspective_url).replace('./benison-model.mjs',benison_model_url))
-benison_dailies_url=dataurl((ROOT/'scripts/benison-dailies.mjs').read_text().replace('./model.mjs',model_url).replace('./catalog.mjs',catalog_url).replace('./benison-model.mjs',benison_model_url))
-main_url=dataurl((ROOT/'scripts/main.mjs').read_text().replace('./benison-dailies.mjs',benison_dailies_url).replace('./app.mjs',app_url).replace('./store.mjs',store_url).replace('./catalog.mjs',catalog_url).replace('./perspective.mjs',perspective_url).replace('./benison-model.mjs',benison_model_url))
-with sync_playwright() as playwright:
+with sync_playwright() as playwright, server() as base:
+    model_url=base+"/scripts/model.mjs";store_url=base+"/scripts/store.mjs";app_url=base+"/scripts/app.mjs";main_url=base+"/scripts/main.mjs"
     # Use Playwright's installed Chromium by default, or an explicit system browser.
-    browser=playwright.chromium.launch(executable_path=os.environ.get('BRAZIER_CHROMIUM_PATH'),headless=True,args=['--no-sandbox'])
+    browser=playwright.chromium.launch(executable_path=os.environ.get('BRAZIER_CHROMIUM_PATH'),headless=True,args=['--no-sandbox']+(['--single-process','--no-zygote','--disable-gpu'] if os.environ.get('BRAZIER_CHROMIUM_SINGLE_PROCESS')=='1' else []))
     page=browser.new_page(viewport={'width':1500,'height':980})
     js_errors=[]
     page.on('pageerror',lambda e:js_errors.append(str(e)))
-    page.set_content('<html><head></head><body></body></html>')
+    page.goto(base+'/tests/preview/blank.html')
     page.add_script_tag(path=str(ROOT/'tests/vendor/handlebars.js'))
     page.evaluate('(template)=>window.__template=template',(ROOT/'templates/window.hbs').read_text())
     page.evaluate('()=>{'+BOOTSTRAP+'}')
-    page.add_style_tag(content=(ROOT/'styles/brazier.css').read_text())
+    page.add_style_tag(url=base+'/styles/brazier.css')
     urls={'modelUrl':model_url,'appUrl':app_url}
     page.evaluate('(urls)=>window.__urls=urls',{'modelUrl':model_url,'storeUrl':store_url})
     result=page.evaluate('''async ({modelUrl,appUrl})=>{
@@ -297,11 +231,11 @@ with sync_playwright() as playwright:
     page.locator('[data-cat-act="save-boon-count"]').click()
     page.wait_for_function('()=>__docs.some(d=>d.getFlag("brazier","catalog")?.boons?.consumableCount===3)')
     assert page.locator('.brazier-curated-list').inner_text().count('Healing Potion')==1
-    for section in ['memories']:
-      page.locator(f'[data-cat-act="boon-section"][data-value="{section}"]').click()
-      page.locator('[data-cat-field="boons.optionName"]').fill('Test '+section)
-      page.locator('[data-cat-act="add-boon-option"]').click()
-      page.locator('.brazier-curated-list').filter(has_text='Test '+section).wait_for()
+    page.locator('[data-cat-act="boon-section"][data-value="memories"]').click()
+    page.locator('[data-camp-act="new-entry"][data-id="memories"]').click()
+    page.locator('[data-camp-field="entry.name"]').fill('Test Memory')
+    page.locator('[data-camp-act="save-entry"]').click()
+    page.locator('.brazier-record-card').filter(has_text='Test Memory').wait_for()
     page.locator('[data-cat-act="boon-section"][data-value="runes"]').click()
     assert page.locator('.brazier-search-results').inner_text().count('Flaming')==1
     assert 'Weapon Potency' not in page.locator('.brazier-search-results').inner_text()
@@ -361,6 +295,11 @@ with sync_playwright() as playwright:
     }''')
     assert opened,'Native Token Controls button did not open Brazier'
     print('Native Token Controls registration/action and opaque talent symbols: PASSED')
+    page.goto(base+'/tests/preview/index.html')
+    page.locator('#preview-checks').click()
+    page.locator('#preview-check-results[data-result="passed"]').wait_for(timeout=30000)
+    assert '12/12 browser checks passed' in page.locator('#preview-check-results').inner_text()
+    print('Production preview campaign scenarios: 12/12 PASSED (simulated host)')
     browser.close()
     print('Brazier Chromium DOM/CSS/pan/zoom/editor smoke tests: PASSED')
     print('Canvas share of width: %.1f%%'%(100*result['stageWidth']/result['windowWidth']))

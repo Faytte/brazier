@@ -1,3 +1,68 @@
+# Brazier v0.4.0 — Offline release validation
+
+Validated November 11, 2026. The **complete offline QA gate passed** on the final production source: syntax checks, seven Node test files (including the original 3,478 randomized assertions), coverage floors, manifest/template/SVG/import audit, nine development-launcher/archive tests, and the full Chromium DOM/CSS/pan/zoom/editor/catalog suite. The browser suite also passed all twelve production-preview campaign scenarios. Existing coverage floors were not lowered.
+
+The local Chromium launcher uses its single-process fallback (`BRAZIER_CHROMIUM_SINGLE_PROCESS=1`, no-zygote, GPU disabled) to avoid the previously observed macOS multiprocess MachPortRendezvous sandbox denial. Earlier reports describing the whole browser suite as blocked are historical and superseded by this run. CI retains the normal multiprocess launch by default.
+
+| Production module | Lines | Branches |
+| --- | ---: | ---: |
+| app.mjs | 56.97% | 45.06% |
+| model.mjs | 96.79% | 94.59% |
+| store.mjs | 100.00% | 72.99% |
+| catalog.mjs | 100.00% | 84.53% |
+| campaign-model.mjs | 100.00% | 68.09% |
+| campaign-store.mjs | 89.62% | 82.64% |
+| benefits.mjs | 92.55% | 66.12% |
+| native-stash.mjs | 100.00% | 100.00% |
+| benison-model.mjs | 100.00% | 97.37% |
+| benison-dailies.mjs | 93.75% | 80.87% |
+
+The native stash delegation module has 100% line/branch coverage. Tests verify active-party/explicit stash selection, native configured view permissions including LIMITED, registered legacy/V2 render calls, View As privilege isolation, errors and absence of custom inventory writes. Browsers exercise the full legacy interface suite plus campaign creation/privacy, undo/redo, choice limits, Shrouds, native sheet handoff, preparation retry and scoped cleanup. Native sheet handoff in the preview is visibly labeled simulated.
+
+**No live Foundry installation, real PF2E RuleElement resolution, actual native inventory transfer, multiplayer permission enforcement or real third-party Dailies lifecycle was tested.** Public API/source review and simulated tests do not certify those integration boundaries. Compatibility declaration remains Foundry 14.369. New source-linked mechanical grants are opt-in and disabled by default.
+
+Base 1 archives and all 68 saved source-file checksums remain unchanged. The release uses additive campaign migration and retains underlying records for removed Caravan tabs. See [development and rollback notes](docs/DEVELOPMENT.md) and [native stash source review](docs/research/native-party-stash.md).
+
+---
+
+## Historical development reports
+
+The following sections describe earlier snapshots; their unpublished status and browser-launch blockers do not describe the v0.4.0 QA run above.
+
+# Native PF2E stash handoff — unpublished
+
+Removed the reduced Cargo inventory page. Cargo & Treasury now opens the existing PF2E Party/loot actor sheet on its inventory tab. The system retains all inventory, drag/drop, stack/quantity/container, currency and permission behavior. Carriage Outfit is the Caravan landing view. Old approval data and talent refund requests are preserved.
+
+Seven Node test files pass, including native-stash.mjs at 100% lines / 100% branches. Tests cover configured native view permissions (including LIMITED), override selection, legacy/V2 render signatures, View As privilege isolation and no direct inventory writes. Core coverage/static/launcher checks pass. Twelve browser scenarios verify production UI and the explicitly simulated native sheet handoff. No real PF2E inventory transfer or native sheet rendering was tested; standalone Chromium remains sandbox-blocked. No release was published.
+
+See [source review and integration boundary](docs/research/native-party-stash.md). Earlier sections below record superseded snapshots.
+
+---
+
+# Caravan simplification and native stash integration — unpublished
+
+Cargo & Treasury defaults to the active PF2E Party actor's existing inventory and coins. An explicit alternative Party/loot stash remains supported, and inaccessible/missing overrides do not silently redirect. Native Party stash opening targets its inventory tab. Removed Overview, People, player My Requests and Caravan Activity navigation; Facilities is now Carriage Outfit. Historical records remain intact. Storyteller Requests remains available for approvals.
+
+Core syntax, coverage, static and launcher checks pass. New regressions cover active party fallback, explicit override, missing actor, rejected character actor and observer permissions. Twelve browser scenarios include simplified navigation and automatic stash display. The standalone browser launcher restriction and lack of live Foundry validation remain unchanged.
+
+---
+
+# Unpublished development snapshot — November 11, 2026
+
+This report covers local development beyond Base 1 / v0.3.1. No release was created. See [development guide](docs/DEVELOPMENT.md) for behavior, migration and unresolved integration risks.
+
+- Syntax checks for all production modules pass.
+- Six Node test files pass, including the original 3,478 deterministic randomized assertions. Existing coverage floors remain satisfied; new campaign/benefit floors are enforced.
+- Measured line/branch coverage: app.mjs 56.97/45.06%; model.mjs 96.79/94.59%; store.mjs 100.0/72.99%; catalog.mjs 100.0/84.53%; campaign-model.mjs 100.0/67.86%; campaign-store.mjs 89.62/77.88%; benefits.mjs 92.55/66.12%; benison-model.mjs 100.0/97.37%; benison-dailies.mjs 93.75/80.87%. Existing floors are unchanged.
+- Manifest/template/SVG/import static audit passes. Nine isolated launcher/archive security tests pass.
+- Eleven in-app browser scenarios passed and exercise production rendering with simulated documents, including player privacy, Memory creation, editor undo/redo, choice limits, supply transfer and Dailies preparation/retry/rest. See sibling roadmap screenshots.
+- The complete headless QA gate is **blocked**, not passed: standalone Chromium fails at macOS MachPortRendezvous startup with permission denied. The browser-run scenario suite is an additional working check, not a claim that every legacy headless assertion executed here.
+- Both Base 1 archive checksums and all 68 archived source-file checksums were verified unchanged.
+
+No active Foundry world, real PF2E RuleElement evaluation, real multiplayer session or actual third-party Dailies lifecycle was tested. Mechanical grant adapters are opt-in and native validation remains pending. The public manifest continues to serve the existing public release.
+
+---
+
 # v0.3.1 Dailies summary formatting — October 24, 2026
 
 Dailies renders notify messages into escaped input values. The previous summary incorrectly joined items with HTML `<br>`, which appeared literally. Each consumable now has its own native notify row with a unique slug and plain-text name. Chat summaries retain HTML escaping for their HTML context.

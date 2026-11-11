@@ -1,4 +1,4 @@
-import {MODULE_ID, freshTree, freshNode, validateTree, projectTree, isAccessible, purchase, clone} from "./model.mjs";
+import {MODULE_ID, freshTree, freshNode, validateTree, projectTree, isAccessible, purchase, rankCost, rankOf, progressFor, clone} from "./model.mjs";
 const FLAG="data";
 const PERM_OBSERVER=2;
 const defaultOwner = {default:0};
@@ -102,9 +102,13 @@ export async function spendPoint(treeId,nodeId,requesterId,requestId=null) {
       if (tree.requestIds?.includes(requestId)) return {duplicate:true};
       if ((tree.requestIds?.length ?? 0) >= 10000) throw new Error("Purchase request history limit reached.");
     }
-    const outcome=purchase(tree,nodeId,requesterId,Boolean(game.users.get(requesterId)?.isGM));
+    const outcome=purchase(tree,nodeId,requesterId,Boolean(game.users.get(requesterId)?.isGM),game.users.get(requesterId)?.character?.level??game.users.get(requesterId)?.character?.system?.details?.level?.value);
     if (requestId !== null) (tree.requestIds ??= []).push(requestId);
     await saveTreeCore(tree);
+    if(outcome.node.benefitUuid||outcome.node.rankBenefits?.length){
+      try{const {campaignView}=await import('./campaign-store.mjs');if(campaignView().experimentalGrants){const {syncTreeBenefits}=await import('./benefits.mjs');await syncTreeBenefits(tree,game.users.get(requesterId));}}
+      catch(error){ui.notifications.warn(`Talent purchase recorded; benefit synchronization needs attention: ${error.message}`);}
+    }
     return outcome;
   });
 }
@@ -151,4 +155,21 @@ export async function processPendingRequests() {
   if (!game.user.isGM) return;
   const messages=[...(game.messages?.contents ?? [])];
   for (const m of messages) if (m.getFlag(MODULE_ID,"request") && !m.getFlag(MODULE_ID,"processed")) await receiveRequest(m);
+}
+
+export async function duplicateTree(treeId){
+  if(!game.user.isGM)throw Error('Storyteller only.');const source=clone(dataOf(masterById(treeId)).tree),created=await makeTree(source.name+' Copy');
+  source.id=created.getFlag(MODULE_ID,FLAG).tree.id;source.name+=' Copy';source.updatedAt=created.getFlag(MODULE_ID,FLAG).tree.updatedAt;source.shared={points:0,ranks:{}};source.personal={};source.requestIds=[];source.refundIds=[];await saveTree(source);return source.id;
+}
+export async function refundTalent(treeId,nodeId,userId,requestId){
+  if(!game.user.isGM)throw Error('Storyteller only.');return serialTreeWrite(treeId,async()=>{
+    const doc=masterById(treeId);if(!doc)throw Error('Tree unavailable.');const tree=clone(dataOf(doc).tree);if(typeof requestId!=='string'||!requestId||requestId.length>128)throw Error('Invalid refund request ID.');if(!game.users.get(userId))throw Error('Player unavailable.');tree.refundIds??=[];if(tree.refundIds.length>=10000)throw Error('Refund history limit reached.');if(tree.refundIds.includes(requestId))return {duplicate:true};
+    const node=tree.nodes.find(n=>n.id===nodeId),progress=progressFor(tree,userId),rank=rankOf(progress,nodeId);if(!node||!rank)throw Error('No purchased rank to refund.');
+    if(rank===1&&tree.nodes.some(n=>n.requires.includes(nodeId)&&rankOf(progress,n.id)>0))throw Error('Refund dependent talents first.');
+    if(tree.progression==='shared'&&Object.values(tree.personal).some(p=>rankOf(p,nodeId)>0))throw Error('Review mixed progression before refunding.');
+    // Remove/reconcile owned grants before returning points. A failed grant deletion is recoverable.
+    const {campaignView}=await import('./campaign-store.mjs');const user=game.users.get(userId);
+    progress.ranks[nodeId]=rank-1;if(campaignView().experimentalGrants){const {syncTreeBenefits}=await import('./benefits.mjs');await syncTreeBenefits(tree,user);}
+    progress.points+=rankCost(node,rank-1);tree.refundIds.push(requestId);await saveTreeCore(tree);return {rank:rank-1};
+  });
 }

@@ -1,3 +1,4 @@
+import {publishCampaign,receiveCampaignRequest,campaignDocs} from "./campaign-store.mjs";
 import {BrazierApplication} from "./app.mjs";
 import {receiveRequest,processPendingRequests,refreshAll} from "./store.mjs";
 import {refreshCatalog,receiveBoonRequest} from "./catalog.mjs";
@@ -29,24 +30,25 @@ Hooks.once("init",()=>{
 });
 Hooks.once("ready",async()=>{
   registerBenisonDailies();
-  for(const hook of ["updateActor","updateUser"]){Hooks.on(hook,()=>{if(app?.rendered)app.render().catch(console.error);});}
+  for(const hook of ["updateActor","updateUser","createItem","updateItem","deleteItem"]){Hooks.on(hook,()=>{if(app?.rendered)app.render().catch(console.error);});}
   Hooks.on("updateJournalEntry",(doc)=>{
-    if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")) && app?.rendered) app.render().catch(console.error);
+    if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")||doc.getFlag("brazier","campaign")) && app?.rendered) app.render().catch(console.error);
   });
   Hooks.on("createJournalEntry",(doc)=>{
-    if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")) && app?.rendered) app.render().catch(console.error);
+    if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")||doc.getFlag("brazier","campaign")) && app?.rendered) app.render().catch(console.error);
   });
   Hooks.on("deleteJournalEntry",(doc)=>{
-    if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")) && app?.rendered) app.render().catch(console.error);
+    if((doc.getFlag("brazier","data")||doc.getFlag("brazier","catalog")||doc.getFlag("brazier","campaign")) && app?.rendered) app.render().catch(console.error);
   });
   Hooks.on("createChatMessage",message=>{
+    if(message.getFlag("brazier","campaignRequest"))receiveCampaignRequest(message).catch(error=>ui.notifications.error(`Brazier: ${error.message}`));
     if(message.getFlag("brazier","request")) receiveRequest(message).catch(console.error);
     if(message.getFlag("brazier","boonRequest"))receiveBoonRequest(message).catch(console.error);
   });
   if(game.user.isGM){
     try {await refreshAll();await processPendingRequests();
       const primary=game.users.filter(u=>u.isGM&&u.active).sort((a,b)=>a.id.localeCompare(b.id))[0];
-      if(primary?.id===game.user.id){await refreshCatalog();for(const message of game.messages?.contents??[])if(message.getFlag("brazier","boonRequest")&&!message.getFlag("brazier","boonProcessed"))await receiveBoonRequest(message);}
+      if(primary?.id===game.user.id){if(campaignDocs().length)await publishCampaign();for(const message of game.messages?.contents??[])if(message.getFlag("brazier","campaignRequest"))await receiveCampaignRequest(message);await refreshCatalog();for(const message of game.messages?.contents??[])if(message.getFlag("brazier","boonRequest")&&!message.getFlag("brazier","boonProcessed"))await receiveBoonRequest(message);}
     }
     catch(error){console.error("Brazier: initial projection sync failed",error);}
   }

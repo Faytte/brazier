@@ -31,10 +31,12 @@ export function progressFor(tree, userId) {
   return tree.progression === "shared" ? tree.shared : (tree.personal[userId] ?? {points:0, ranks:{}});
 }
 export const rankOf = (progress, nodeId) => Math.max(0, Number(Object.hasOwn(progress?.ranks ?? {}, nodeId) ? progress.ranks[nodeId] : 0) || 0);
-export function canBuy(tree,node,progress) {
+export const rankCost=(node,rank=0)=>node.rankCosts?.[rank]??node.cost;
+export function canBuy(tree,node,progress,level=null) {
   if (!node || rankOf(progress,node.id) >= node.maxRank) return false;
+  if((node.minimumLevel??0)>0&&(!Number.isInteger(level)||level<node.minimumLevel))return false;
   if (!node.requires.every(id => rankOf(progress,id) > 0)) return false;
-  return Number.isSafeInteger(progress?.points) && progress.points >= node.cost;
+  return Number.isSafeInteger(progress?.points) && progress.points >= rankCost(node,rankOf(progress,node.id));
 }
 export function reachable(tree,node,progress) {
   return rankOf(progress,node.id) > 0 || node.requires.every(id => rankOf(progress,id) > 0);
@@ -54,14 +56,14 @@ export function projectTree(tree, userId) {
     nodes:clone(visible.map(({notes, ...publicNode}) => publicNode)), progress
   };
 }
-export function purchase(tree, nodeId, userId, isStoryteller=false) {
+export function purchase(tree, nodeId, userId, isStoryteller=false,level=null) {
   if (!isStoryteller && !isAccessible(tree,userId)) throw new Error("Tree not assigned to this user.");
   const node=tree.nodes.find(n=>n.id===nodeId);
   if (!node) throw new Error("Talent does not exist.");
   const progress=tree.progression === "shared" ? tree.shared :
     (tree.personal[userId] ??= {points:0,ranks:{}});
-  if (!canBuy(tree,node,progress)) throw new Error("Not enough points, prerequisites unmet, or talent fully ranked.");
-  progress.points -= node.cost;
+  if (!canBuy(tree,node,progress,level)) throw new Error("Not enough points, prerequisites unmet, or talent fully ranked.");
+  progress.points -= rankCost(node,rankOf(progress,node.id));
   progress.ranks[node.id] = rankOf(progress,node.id) + 1;
   return {node, rank:progress.ranks[node.id]};
 }
@@ -93,6 +95,7 @@ export function validateTree(tree) {
   if (!Array.isArray(tree.users) || tree.users.length > 500 || tree.users.some(u => typeof u !== "string" || !u || u.length > 128) || new Set(tree.users).size !== tree.users.length)
     fail("Invalid assigned player list.");
   if (!VISIBILITIES.includes(tree.visibility)) fail("Invalid visibility.");
+  if(tree.refundIds!==undefined&&(!Array.isArray(tree.refundIds)||tree.refundIds.length>10000||tree.refundIds.some(id=>typeof id!=='string'||!id||id.length>128)||new Set(tree.refundIds).size!==tree.refundIds.length))fail('Invalid refund request history.');
   if (!["shared","personal"].includes(tree.progression)) fail("Invalid progression.");
   if (!BACKGROUNDS.includes(tree.background) || !LINES.includes(tree.line) || !Object.hasOwn(ICONS,tree.pointIcon)) fail("Invalid appearance preset.");
   if (!/^#[0-9a-f]{6}$/i.test(tree.lineColor) || !Number.isFinite(tree.glow) || tree.glow < 0 || tree.glow > 35) fail("Invalid connector settings.");
@@ -113,6 +116,10 @@ export function validateTree(tree) {
     if (!Object.hasOwn(ICONS,n.icon)) fail("Invalid talent icon.");
     if (!Number.isFinite(n.x) || !Number.isFinite(n.y) || Math.abs(n.x)>2300 || Math.abs(n.y)>2300) fail("Invalid node position.");
     if (!Number.isSafeInteger(n.cost) || n.cost < 0 || n.cost > 999999 || !Number.isSafeInteger(n.maxRank) || n.maxRank < 1 || n.maxRank > 1000) fail("Invalid talent cost or rank.");
+    if(n.minimumLevel!==undefined&&(!Number.isInteger(n.minimumLevel)||n.minimumLevel<0||n.minimumLevel>30))fail("Invalid talent minimum level.");
+    for(const key of ["benefitUuid"])if(n[key]!==undefined&&(typeof n[key]!=="string"||n[key].length>500||n[key]&&!/^(Item|Compendium)\.[A-Za-z0-9_.-]+$/.test(n[key])))fail("Invalid talent benefit UUID.");
+    if(n.rankCosts!==undefined&&(!Array.isArray(n.rankCosts)||n.rankCosts.length&&n.rankCosts.length!==n.maxRank||n.rankCosts.some(v=>!Number.isSafeInteger(v)||v<0||v>999999)))fail("Provide one cost per rank, or leave rank costs empty.");
+    if(n.rankBenefits!==undefined&&(!Array.isArray(n.rankBenefits)||n.rankBenefits.length&&n.rankBenefits.length!==n.maxRank||n.rankBenefits.some(v=>typeof v!=="string"||v&&!/^(Item|Compendium)\.[A-Za-z0-9_.-]+$/.test(v))))fail("Provide one source UUID per rank, or leave rank sources empty.");
     if (!Array.isArray(n.requires) || n.requires.length > 1000 || new Set(n.requires).size !== n.requires.length) fail("Invalid prerequisite list.");
   }
   const lookup = new Map(tree.nodes.map(n => [n.id,n]));

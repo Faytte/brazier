@@ -1,5 +1,8 @@
-import {ICONS, BACKGROUNDS, LINES, VISIBILITIES, freshNode, uid, clone, rankOf, progressFor, canBuy, validateTree} from "./model.mjs";
-import {availableTrees, makeTree, saveTree, deleteTree, requestPurchase, spendPoint} from "./store.mjs";
+import {requestCampaign} from "./campaign-store.mjs";
+import {benefitPreview,syncTalentBenefits} from "./benefits.mjs";
+import {campaignHTML,campaignClick,campaignChange} from "./campaign-ui.mjs";
+import {ICONS, BACKGROUNDS, LINES, VISIBILITIES, freshNode, uid, clone, rankOf, progressFor, canBuy, rankCost, validateTree} from "./model.mjs";
+import {availableTrees, makeTree, saveTree, duplicateTree, deleteTree, requestPurchase, spendPoint} from "./store.mjs";
 import {viewingAs,storyteller,setPerspective} from "./perspective.mjs";
 import {catalogHTML,catalogClick,catalogChange} from "./catalog-ui.mjs";
 
@@ -42,6 +45,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     if (!this.isStoryteller) return this.effectiveUser.id;
     return game.users.get(this.previewUserId)?.id ?? game.users.find(u=>!u.isGM && (this.tree?.access==="all" || this.tree?.users?.includes(u.id)))?.id ?? game.user.id;
   }
+  get eligibilityLevel(){const u=game.users.get(this.viewingUser);return u?.character?.level??u?.character?.system?.details?.level?.value??null;}
   get progress(){
     const t=this.tree;
     return t?.progress ?? (t?progressFor(t,this.viewingUser):{points:0,ranks:{}});
@@ -59,7 +63,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       pointIconClass:ICONS[t?.pointIcon] || ICONS.star,
       currency:t?.currency,background:t?.background||"plain",
       placeholderTitle:{boons:"Benison Boons",curio:"Curio",caravan:"Caravan"}[this.tab]
-      ,catalogContent:["curio","boons"].includes(this.tab)?catalogHTML(this):"",catalogTab:["curio","boons"].includes(this.tab)
+      ,catalogContent:this.tab==="caravan"?campaignHTML(this):["curio","boons"].includes(this.tab)?catalogHTML(this):"",catalogTab:["curio","boons","caravan"].includes(this.tab)
     };
   }
   async _onRender(context,options){
@@ -73,6 +77,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       root.addEventListener("click",e=>this._onClick(e));
       root.addEventListener("change",e=>this._onChange(e).catch(err=>this._warn(err)));
       root.addEventListener("input",e=>{
+        if(e.target.dataset.campField)campaignChange(this,e).catch(err=>this._warn(err));
         if(e.target.dataset.catField)catalogChange(this,e).catch(err=>this._warn(err));
       });
       root.addEventListener("keydown",e=>{
@@ -88,11 +93,12 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     const tree=this.tree;
     if(!tree)return;
     const copy=clone(tree);delete copy._docId;
-    try {modifier(copy);validateTree(copy);this._busy=true;await saveTree(copy);}
+    try {modifier(copy);validateTree(copy);this._busy=true;const before=clone(tree);await saveTree(copy);this.editorHistory??={};const history=this.editorHistory[tree.id]??={undo:[],redo:[]};history.undo.push({before,after:clone(copy),expected:this.tree.updatedAt});if(history.undo.length>50)history.undo.shift();history.redo=[];}
     catch(err){this._warn(err);}
     finally{this._busy=false;await this._refresh();}
   }
   async _onClick(event){
+    if(event.target.closest("[data-camp-act]")?.dataset.campAct){try{await campaignClick(this,event);}catch(error){this._warn(error);await this._refresh();}return;}
     if(event.target.closest("[data-cat-act]")?.dataset.catAct){
       try{await catalogClick(this,event);}catch(error){this._warn(error);await this._refresh();}
       return;
@@ -111,6 +117,14 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
           this.treeId=doc.getFlag("brazier","data").tree.id;
           this.editing=true;this.panel="settings";await this._refresh();break;
         }
+        case "duplicate-tree":if(this.isStoryteller){this.treeId=await duplicateTree(this.treeId);await this._refresh();}break;
+        case "undo":await this._applyEditorHistory('undo');break;
+        case "redo":await this._applyEditorHistory('redo');break;
+        case "find-node":{const query=window.prompt('Find a visible talent by name:','');if(query){const n=this.tree?.nodes.find(n=>n.name.toLowerCase().includes(query.toLowerCase()));if(n){this.nodeId=n.id;this.panel='node';this.pan={x:-n.x*this.zoom,y:-n.y*this.zoom};this._renderGraph();}else ui.notifications.info('No matching visible talent.');}break;}
+        case "snap-nodes":await this._commit(t=>{for(const n of t.nodes){n.x=Math.round(n.x/40)*40;n.y=Math.round(n.y/40)*40;}});break;
+        case "refund-request":await requestCampaign('refund-request',{treeId:this.tree.id,nodeId:this.nodeId},this.isStoryteller?this.progressRecipient():this.effectiveUser.id);ui.notifications.info('Refund request recorded in Caravan → Requests.');break;
+        case "sync-tree-benefits":await syncTalentBenefits(this.tree,game.users.get(this.isStoryteller?this.progressRecipient():this.effectiveUser.id));break;
+        case "preview-node-benefit":ui.notifications.info((await benefitPreview(this.tree.nodes.find(n=>n.id===this.nodeId)?.benefitUuid)).message);break;
         case "edit-toggle":if(!this.isStoryteller)return;this.editing=!this.editing;this.panel=null;this.linking=false;this.linkSource=null;await this._refresh();break;
         case "add-node":await this._commit(t=>{const n=freshNode("New Talent",Math.round(-this.pan.x/this.zoom),Math.round(-this.pan.y/this.zoom));t.nodes.push(n);this.nodeId=n.id;this.panel="node";});break;
         case "link-mode":this.linking=!this.linking;this.linkSource=null;this.panel=null;this._renderGraph();break;
@@ -122,7 +136,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
         case "select-node":await this._selectNode(val);break;
         case "unlock":{
           const tree=this.tree;const node=tree?.nodes.find(n=>n.id===this.nodeId);if(!node)return;
-          if(!window.confirm(`Spend ${node.cost} ${tree.currency} to unlock ${node.name}?`))return;
+          if(!window.confirm(`Spend ${rankCost(node,rankOf(this.progress,node.id))} ${tree.currency} to unlock ${node.name}?`))return;
           if(game.user.isGM) {
             const recipient=!this.isStoryteller?this.effectiveUser.id:this.progressRecipient();
             await spendPoint(tree.id,node.id,recipient);
@@ -158,6 +172,11 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       p.points=Math.max(0,p.points+delta);
     });
   }
+  async _applyEditorHistory(action){
+    if(!this.isStoryteller)return;const tree=this.tree,history=this.editorHistory?.[tree.id],record=history?.[action].at(-1);if(!record)return;
+    if(tree.updatedAt!==record.expected)throw Error('The tree changed outside this editor history. Reopen it before editing; undo will not overwrite newer changes.');
+    const restored=clone(action==='undo'?record.before:record.after);restored.updatedAt=tree.updatedAt;await saveTree(restored);history[action].pop();const opposite=action==='undo'?'redo':'undo';record.expected=this.tree.updatedAt;history[opposite].push(record);if(history[action].length)history[action].at(-1).expected=this.tree.updatedAt;await this._refresh();
+  }
   async _selectNode(id){
     if(this.linking&&this.editing){
       if(!this.linkSource){this.linkSource=id;this._renderGraph();return;}
@@ -174,6 +193,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
   }
   async _onChange(e){
     if(e.target.hasAttribute?.("data-view-as")){setPerspective(this,e.target.value);await this._refresh();return;}
+    if(await campaignChange(this,e))return;
     if(await catalogChange(this,e))return;
     if(e.target.id==="brazier-import"&&e.target.files?.length) {try {await this._import(e.target.files[0]);} finally {e.target.value="";}return;}
     const field=e.target.dataset.field;if(!field||!this.isStoryteller)return;
@@ -197,7 +217,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       } else if(field.startsWith("node.")){
         const n=t.nodes.find(n=>n.id===targetId);if(!n)return;
         const key=field.slice(5);
-        n[key]=["cost","maxRank"].includes(key)?Math.max(key==="maxRank"?1:0,Math.round(Number(val)||0)):val;
+        n[key]=key==="rankCosts"?val.trim()?val.split(",").map(v=>Number(v.trim())):[]:key==="rankBenefits"?val.trim()?val.split(",").map(v=>v.trim()):[]:["cost","maxRank","minimumLevel"].includes(key)?Math.max(key==="maxRank"?1:0,Math.round(Number(val)||0)):val;
       }
       if(t.background!=="custom")t.backgroundUrl="";
     });
@@ -294,7 +314,7 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     }
     for(const node of t.nodes){
       const rank=rankOf(progress,node.id);
-      const available=canBuy(t,node,progress);
+      const available=canBuy(t,node,progress,this.eligibilityLevel);
       const reachable=node.requires.every(id=>rankOf(progress,id)>0);
       const state=rank?"unlocked":available?"available":reachable?"frontier":"locked";
       const btn=document.createElement("button");btn.type="button";
@@ -326,13 +346,16 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
     overlay.appendChild(card);
   }
   _viewNodeHtml(t,node){
-    const progress=this.progress,rank=rankOf(progress,node.id), available=canBuy(t,node,progress);
+    const progress=this.progress,rank=rankOf(progress,node.id), available=canBuy(t,node,progress,this.eligibilityLevel);
     const req=node.requires.map(id=>t.nodes.find(n=>n.id===id)?.name).filter(Boolean);
     return `<div class="brazier-inspector-title"><span>Talent Details</span>${button("close-panel",'<i class="fa-solid fa-xmark"></i>')}</div>
       <div class="brazier-talent-emblem">${iconHtml(node.icon,node.iconUrl)}</div>
       <h2>${h(node.name)}</h2><p>${h(node.description||"No description yet.")}</p>
-      <dl><dt>Cost</dt><dd>${node.cost} ${h(t.currency)}</dd><dt>Rank</dt><dd>${rank} / ${node.maxRank}</dd></dl>
+      <dl><dt>Cost</dt><dd>${rankCost(node,rank)} ${h(t.currency)}</dd><dt>Rank</dt><dd>${rank} / ${node.maxRank}</dd></dl>
       ${req.length?`<div class="brazier-requisites"><b>Prerequisites</b>${req.map(n=>`<span><i class="fa-solid fa-link"></i> ${h(n)}</span>`).join("")}</div>`:""}
+      ${node.minimumLevel?`<p class="brazier-note">Requires character level ${node.minimumLevel}; selected character level ${this.eligibilityLevel??'not assigned'}.</p>`:''}
+      ${node.benefitUuid||node.rankBenefits?.length?'<p class="brazier-note">Source-linked benefit. Mechanical grants require the opt-in Campaign Setting and supported source data.</p>':''}
+      ${rank>0?button('refund-request','Request Rank Refund'):''}${this.isStoryteller?button('sync-tree-benefits','Synchronize Supported Benefits'):''}
       ${rank>=node.maxRank?'<div class="brazier-owned">Fully unlocked</div>':
         button("unlock", this.isStoryteller?"Unlock Talent":"Spend Points",available?"class='brazier-primary'":"disabled title='Need points or prerequisites'")}
       ${!game.user.isGM?'<small class="brazier-note">A Storyteller client validates and applies purchases.</small>':""}`;
@@ -342,6 +365,11 @@ export class BrazierApplication extends HandlebarsApplicationMixin(ApplicationV2
       ${formRow("Name",textInput("node.name",node.name))}
       ${formRow("Description",`<textarea data-field="node.description" rows="3">${h(node.description)}</textarea>`)}
       <div class="brazier-two">${formRow("Point Cost",numInput("node.cost",node.cost,0,999))}${formRow("Ranks",numInput("node.maxRank",node.maxRank,1,50))}</div>
+      ${formRow("Minimum Character Level",numInput("node.minimumLevel",node.minimumLevel??0,0,30))}
+      ${formRow("Costs per Rank (comma separated, optional)",textInput("node.rankCosts",(node.rankCosts??[]).join(',')))}
+      ${formRow("Default Benefit Item UUID",textInput("node.benefitUuid",node.benefitUuid??''))}
+      ${formRow("Benefit UUID per Rank (comma separated, optional)",textInput("node.rankBenefits",(node.rankBenefits??[]).join(',')))}
+      ${button('preview-node-benefit','Preview Default Benefit')}
       ${formRow("Icon",selectInput("node.icon",Object.keys(ICONS),node.icon))}
       ${formRow("Custom Icon",textInput("node.iconUrl",node.iconUrl||"","Path or URL"))}
       ${button("browse-node",'<i class="fa-solid fa-folder-open"></i> Browse Image')}

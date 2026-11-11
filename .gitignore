@@ -5,3 +5,6 @@ __pycache__/
 dist/
 test-results/
 playwright-report/
+
+# Private local development runtime is a sibling directory, never module content.
+.brazier-native/

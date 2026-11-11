@@ -1,3 +1,5 @@
+import {campaignView} from "./campaign-store.mjs";
+import {dailyBenefitPlans,grantBenefits,benefitPreview} from "./benefits.mjs";
 import {MODULE_ID,uid,clone} from "./model.mjs";
 import {boonCatalog,boonChoices,escapeHTML} from "./catalog.mjs";
 import {assignedCharacter,characterLevel,benisonAmount,isBenisonConsumable} from "./benison-model.mjs";
@@ -59,6 +61,8 @@ async function prepareCore(actor){
     source.flags[MODULE_ID].benison={schema:1,userId:user.id,actorUuid:actor.uuid,cycle:state.cycle,sourceUuid:uuid,quantity};
     sources.push(source);
   }
+  const benefitPlans=await dailyBenefitPlans(actor,user);
+  for(const plan of benefitPlans)if(plan.sourceUuid){const preview=await benefitPreview(plan.sourceUuid);if(preview.status!=="supported")throw Error(preview.message);}
   if(stateOf(actor).cycle!==state.cycle)throw new Error("The character rested during preparation. Reopen Dailies and try again.");
   const matches=(item,source)=>marker(item)?.actorUuid===actor.uuid&&marker(item).cycle===state.cycle&&marker(item).sourceUuid===source.flags[MODULE_ID].benison.sourceUuid;
   const find=id=>[...actor.items].find(item=>item.id===id);
@@ -77,33 +81,36 @@ async function prepareCore(actor){
   const ids=new Set(sources.map(source=>source._id));
   const old=benisonItems(actor).filter(item=>!ids.has(item.id)).map(item=>item.id);
   if(old.length)await actor.deleteEmbeddedDocuments("Item",old);
+  const benefits=await grantBenefits(actor,benefitPlans,{scope:"benison-daily",cycle:state.cycle,lifetime:"daily"});
   await actor.setFlag(MODULE_ID,"benisonState",{cycle:state.cycle,prepared:true});
-  return {duplicate:false,items:sources.map(source=>({name:source.name,quantity:source.system.quantity})),removed:old.length};
+  return {benefits:benefits.items,duplicate:false,items:sources.map(source=>({name:source.name,quantity:source.system.quantity})),removed:old.length};
 }
 export async function resetBenison({actor,removeItem}){
   for(const item of benisonItems(actor))removeItem(item.id);
+  for(const item of actor.items)if(item.getFlag(MODULE_ID,"benefit")?.lifetime==="daily"&&item.getFlag(MODULE_ID,"benefit").actorUuid===actor.uuid)removeItem(item.id);
   await actor.setFlag(MODULE_ID,"benisonState",{cycle:uid(),prepared:false});
 }
 export function benisonDaily(){
   return {
     key:DAILY_KEY,label:"Benison Consumables",
-    condition:actor=>actor.type==="character"&&actor.isOwner&&(game.user.isGM||assignedCharacter(game.user)?.uuid===actor.uuid)&&(boonCatalog().consumables.length>0||Boolean(actor.getFlag(MODULE_ID,"benisonState"))||benisonItems(actor).length>0),
+    condition:actor=>actor.type==="character"&&actor.isOwner&&(game.user.isGM||assignedCharacter(game.user)?.uuid===actor.uuid)&&(boonCatalog().consumables.length>0||boonCatalog().runes.length>0||campaignView().shrouds.length>0||Boolean(actor.getFlag(MODULE_ID,"benisonState"))||benisonItems(actor).length>0),
     rows:actor=>{
       const users=assignedPlayers(actor),b=boonCatalog();
       const notify=(message,index=0)=>({type:"notify",slug:`consumables-${index}`,label:"Benison",save:false,message});
       if(users.length!==1)return [notify("Assign exactly one player account to this character before preparing Benison consumables.")];
       const user=users[0],selected=boonChoices(user).consumables,level=characterLevel(user);
-      if(!selected.length)return [notify("No consumables selected. Save your selections in Brazier before daily preparation.")];
+      const c=campaignView(user),extra=(c.prepared[user.id]??[]).map(id=>c.shrouds.find(s=>s.id===id)).filter(Boolean).map((s,index)=>({...notify(`Shroud: ${s.name} (${!s.sourceUuid?"narrative":c.experimentalGrants?"source-linked":"grants disabled"})`),slug:`shroud-${index}`}));
+      if(!selected.length)return [notify("No consumables selected. Save your selections in Brazier before daily preparation."),...extra];
       // Dailies notify messages are escaped text-input values, not HTML.
-      return selected.map((uuid,index)=>{
+      return [...selected.map((uuid,index)=>{
         const item=b.consumables.find(i=>i.uuid===uuid);
         return notify(item?`${item.name} × ${benisonAmount(level,item.level,b.quantityBands)??"?"}`:"A saved choice is no longer available; save choices again in Brazier.",index);
-      });
+      }),...extra];
     },
     process:async({actor,messages})=>{
       try{
         const result=await prepareBenison(actor);
-        messages.addRaw(result.duplicate?"Benison consumables were already prepared this cycle.":`Benison consumables: ${result.items.map(i=>`${escapeHTML(i.name)} × ${i.quantity}`).join(", ")||"none selected"}.`);
+        messages.addRaw(result.duplicate?"Benison consumables were already prepared this cycle.":`Benison consumables: ${[...result.items,...(result.benefits??[]).map(i=>({name:i.name,quantity:1}))].map(i=>`${escapeHTML(i.name)} × ${i.quantity}`).join(", ")||"none selected"}.`);
       }catch(error){ui.notifications.error(`Brazier Benison: ${error.message}`);throw error;}
     },
     rest:resetBenison

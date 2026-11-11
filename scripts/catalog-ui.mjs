@@ -1,3 +1,5 @@
+import {campaignHTML,runeTargetsHTML} from "./campaign-ui.mjs";
+import {syncCurioBenefits,benefitPreview} from "./benefits.mjs";
 import {viewingAs,storyteller} from "./perspective.mjs";
 import {normalizedTraits,isBenisonConsumable,characterLevel,benisonAmount} from "./benison-model.mjs";
 import {ICONS,clone,uid} from "./model.mjs";
@@ -12,19 +14,20 @@ const prose=value=>`<div class="brazier-prose">${h(value)}</div>`;
 
 export function catalogHTML(app){return app.tab==="curio"?curioHTML(app):boonsHTML(app);}
 function curioHTML(app){
-  const gm=storyteller(app),all=availableCurios(viewingAs(app));
+  const gm=storyteller(app),all=availableCurios(viewingAs(app)).filter(c=>!app.curioQuery||c.name.toLowerCase().includes(app.curioQuery.toLowerCase()));
   const curio=(gm?app.curioDraft:null)??all.find(c=>c.id===app.curioId);
-  return `<section class="brazier-catalog"><aside class="brazier-catalog-list"><h2>Curio</h2>${gm?btn("new-curio","+ New Curio"):""}${all.map(c=>btn("select-curio",`${icon(c)}<span>${h(c.name)}</span>${c.locked?'<i class="fa-solid fa-lock"></i>':""}`,c.id,`class="brazier-catalog-choice ${curio?.id===c.id?"active":""}"`)).join("")||'<p>No curios yet.</p>'}</aside><div class="brazier-catalog-body">${!curio?'<div class="brazier-empty"><h2>Curio collection</h2><p>Select a Curio to view it.</p></div>':gm?editCurio(app,curio):viewCurio(curio)}</div></section>`;
+  return `<section class="brazier-catalog"><aside class="brazier-catalog-list"><h2>Curio</h2>${field("Search collection",input("curio-query",app.curioQuery??"","search"))}${btn("search-curios","Search")}${gm?btn("new-curio","+ New Curio"):""}${all.map(c=>btn("select-curio",`${icon(c)}<span>${h(c.name)}</span>${c.locked?'<i class="fa-solid fa-lock"></i>':""}`,c.id,`class="brazier-catalog-choice ${curio?.id===c.id?"active":""}"`)).join("")||'<p>No curios yet.</p>'}</aside><div class="brazier-catalog-body">${!curio?'<div class="brazier-empty"><h2>Curio collection</h2><p>Select a Curio to view it.</p></div>':gm?editCurio(app,curio):viewCurio(curio)}</div></section>`;
 }
 function editCurio(app,c){
   return `<div class="brazier-section-heading"><h2>${icon(c)} ${h(c.name)}</h2><div>${btn("save-curio","Save Curio & Sync Item","",app.catalogBusy?"disabled":"")}${btn("discard-curio","Discard Changes")}${c.updatedAt?btn("sync-curio","Retry Item Sync",c.id):""}${curioWorldItem(c.id)?btn("open-curio-item","Open Item",c.id):""}</div></div>
-    <p class="brazier-note">Names and icons are public. Description and gifts are visible only to selected players. Save creates or updates the PF2E equipment item. Gifts are recorded as item text and source links; this editor does not automatically apply their mechanics. Giving an item to an actor also reveals its details to that actor’s owners.</p>
+    <p class="brazier-note">Names and icons are public. Description and gifts are visible only to selected players. Save creates or updates the PF2E equipment item. Gifts may be narrative or linked to supported feat/action/effect sources. Use Preview then Synchronize Benefits for opt-in mechanics. Giving an item to an actor also reveals its details to that actor’s owners.</p>
+    ${field("Bearer",`<select data-cat-field="curio.bearerUuid"><option value="">Not assigned</option>${[...game.actors].filter(a=>a.type==="character").map(a=>`<option value="${h(a.uuid)}" ${a.uuid===c.bearerUuid?"selected":""}>${h(a.name)}</option>`).join("")}</select>`)}${btn("sync-curio-benefits","Synchronize Supported Benefits",c.id)}
     <div class="brazier-two">${field("Name",input("curio.name",c.name,"text",'maxlength="120"'))}${field("Built-in icon",select("curio.icon",Object.keys(ICONS),c.icon))}</div>
-    ${field("Custom art",input("curio.iconUrl",c.iconUrl,"text",'placeholder="Image path or HTTPS URL"'))}${btn("browse-curio","Browse / Upload Art")}
+    ${field("Campaign tags",input("curio.tags",c.tags??""))}${field("Custom art",input("curio.iconUrl",c.iconUrl,"text",'placeholder="Image path or HTTPS URL"'))}${btn("browse-curio","Browse / Upload Art")}
     ${field("Private description",`<textarea rows="4" maxlength="20000" data-cat-field="curio.description">${h(c.description)}</textarea>`)}
     <fieldset><legend>Players allowed to see details</legend>${game.users.filter(u=>!u.isGM).map(u=>`<label class="brazier-checkbox"><input type="checkbox" data-cat-field="curio.users" data-user="${h(u.id)}" ${c.users.includes(u.id)?"checked":""}>${h(u.name)}</label>`).join("")||"No player accounts."}</fieldset>
     <div class="brazier-section-heading"><h3>Relic Gifts (${c.gifts.length})</h3>${btn("add-gift","+ Add Relic Gift")}</div>
-    ${c.gifts.map(g=>`<fieldset data-gift="${h(g.id)}"><legend>${h(g.name)}</legend><div class="brazier-two">${field("Gift name",input("gift.name",g.name,"text",'maxlength="120"'))}${field("Gift tier",select("gift.tier",["minor","major","grand"],g.tier))}</div>${field("Aspect",input("gift.aspect",g.aspect,"text",'maxlength="120"'))}${field("Effect / activation / frequency",`<textarea rows="3" maxlength="20000" data-cat-field="gift.description">${h(g.description)}</textarea>`)}${field("Optional source Item UUID",input("gift.sourceUuid",g.sourceUuid))}${btn("browse-gifts","Choose Compendium Gift",g.id)}${btn("import-gift","Import Name & Text from UUID",g.id)}${btn("remove-gift","Remove Gift",g.id)}</fieldset>`).join("")}${app.giftPicker?giftSearchHTML(app):""}`;
+    ${c.gifts.map(g=>`<fieldset data-gift="${h(g.id)}"><legend>${h(g.name)}</legend><div class="brazier-two">${field("Gift name",input("gift.name",g.name,"text",'maxlength="120"'))}${field("Gift tier",select("gift.tier",["minor","major","grand"],g.tier))}</div>${field("Aspect",input("gift.aspect",g.aspect,"text",'maxlength="120"'))}${field("Effect / activation / frequency",`<textarea rows="3" maxlength="20000" data-cat-field="gift.description">${h(g.description)}</textarea>`)}${field("Optional source Item UUID",input("gift.sourceUuid",g.sourceUuid))}<div class="brazier-two">${field("Minimum bearer level",input("gift.minimumLevel",g.minimumLevel??0,"number",'min="0" max="30"'))}${field("Story milestone (optional)",input("gift.milestone",g.milestone??""))}</div><div class="brazier-two"><label class="brazier-checkbox"><input type="checkbox" data-cat-field="gift.unlocked" ${g.unlocked?"checked":""}>Milestone completed</label><label class="brazier-checkbox"><input type="checkbox" data-cat-field="gift.revealed" ${g.revealed!==false?"checked":""}>Reveal gift to permitted players</label></div>${field("Mechanics",select("gift.automation",["narrative","source"],g.automation??"narrative"))}${btn("preview-curio-benefit","Preview Source Benefit",g.id)}${btn("browse-gifts","Choose Compendium Gift",g.id)}${btn("import-gift","Import Name & Text from UUID",g.id)}${btn("remove-gift","Remove Gift",g.id)}</fieldset>`).join("")}${app.giftPicker?giftSearchHTML(app):""}`;
 }
 function giftSearchHTML(app){
   const f=app.giftFilters??={query:"",pack:"",min:0,max:30};
@@ -41,24 +44,29 @@ async function importGift(gift){
   gift.name=source.name;gift.description=text.body.textContent.trim();
 }
 function viewCurio(c){
-  return `<div class="brazier-section-heading"><h2>${icon(c)} ${h(c.name)}</h2></div>${c.locked?'<p class="brazier-locked"><i class="fa-solid fa-lock"></i> Your Storyteller has not revealed this Curio’s details to you.</p>':`${prose(c.description)}<h3>Relic Gifts</h3>${c.gifts.map(g=>`<article class="brazier-gift"><h3>${h(g.name)}</h3><small>${h(g.tier)} gift${g.aspect?` · ${h(g.aspect)}`:""}</small>${prose(g.description)}${g.sourceUuid?btn("open-source","View Gift Source",g.sourceUuid):""}</article>`).join("")||'<p>No gifts revealed.</p>'}`}`;
+  return `<div class="brazier-section-heading"><h2>${icon(c)} ${h(c.name)}</h2></div>${c.locked?'<p class="brazier-locked"><i class="fa-solid fa-lock"></i> Your Storyteller has not revealed this Curio’s details to you.</p>':`${prose(c.description)}<p class="brazier-note">Bearer: ${h([...game.actors].find(a=>a.uuid===c.bearerUuid)?.name??'Not assigned')}</p><h3>Relic Gifts</h3>${[...c.gifts].sort((a,b)=>['minor','major','grand'].indexOf(a.tier)-['minor','major','grand'].indexOf(b.tier)).map(g=>`<article class="brazier-gift"><h3>${h(g.name)}</h3><small>${h(g.tier)} gift${g.aspect?` · ${h(g.aspect)}`:""}</small><p class="brazier-note">${g.minimumLevel?`Level ${g.minimumLevel}+ · `:''}${g.milestone?`${h(g.milestone)}: ${g.unlocked?'complete':'pending'} · `:''}${g.automation==='source'?'Source-linked benefit':'Narrative benefit'}</p>${prose(g.description)}${g.sourceUuid?btn("open-source","View Gift Source",g.sourceUuid):""}</article>`).join("")||'<p>No gifts revealed.</p>'}`}`;
 }
 function boonsHTML(app){
+  if(app.boonSection==="memories")return `<section class="brazier-boons"><nav class="brazier-subtabs" aria-label="Benison Boon sections">${[["consumables","Consumables"],["runes","Runes"],["memories","Memories and Shrouds"]].map(([key,label])=>btn("boon-section",label,key)).join("")}</nav>${campaignHTML(app,"memories")}</section>`;
   const b=boonCatalog(),section=app.boonSection??"consumables",gm=storyteller(app),manage=gm&&app.catalogMode==="manage";
   const sections={consumables:"Consumables",runes:"Runes",memories:"Memories and Shrouds"},searchable=section!=="memories";
   const countKey=section==="runes"?"runeCount":"consumableCount",limit=section==="memories"?b.memories.length:b[countKey];
   const user=viewingAs(app);app.choiceDrafts??={};
   const draftKey=`${user.id}:${section}`,saved=boonChoices(user)[section]??[];
-  const chosen=(app.choiceDrafts[draftKey]??saved).filter(id=>b[section].some(i=>i.uuid===id));
+  const rawChosen=app.choiceDrafts[draftKey]??saved,missing=rawChosen.filter(id=>!b[section].some(i=>i.uuid===id));
+  const chosen=rawChosen.filter(id=>b[section].some(i=>i.uuid===id));
   return `<section class="brazier-boons"><nav class="brazier-subtabs" aria-label="Benison Boon sections">${Object.entries(sections).map(([key,label])=>btn("boon-section",label,key,`class="${section===key?"active":""}"`)).join("")}</nav><div class="brazier-catalog-body"><div class="brazier-section-heading"><h2>${sections[section]}</h2>${gm?`<div class="brazier-mode-toggle" aria-label="Catalog mode">${btn("catalog-mode","Overview","overview",`aria-pressed="${!manage}"`)}${btn("catalog-mode","Manage Options","manage",`aria-pressed="${manage}"`)}</div>`:""}</div>
   ${searchable?gm?`<div class="brazier-choice-count">${field(`Global number of ${section==="runes"?"rune":"consumable"} choices`,input("boons.count",app.countDrafts?.[section]??b[countKey],"number",'min="0" max="9999" step="1"'))}${btn("save-boon-count","Save Choice Count")}</div>`:`<p>Choose up to <strong>${limit}</strong> ${sections[section].toLowerCase()}.</p>`:""}
   ${gm&&section==="consumables"?quantityBandsHTML(app,b):""}
   ${manage&&searchable?searchHTML(app,section):""}
   ${manage&&!searchable?`${field("New option name",input("boons.optionName",app.boonOptionName??""))}${field("Details",`<textarea data-cat-field="boons.optionDescription">${h(app.boonOptionDescription??"")}</textarea>`)}${btn("add-boon-option","+ Add Option")}`:""}
-  ${!gm&&section==="consumables"?`<p class="brazier-note">Character: ${h(user.character?.name??"Not assigned")} · Level ${characterLevel(user)??"—"}${characterLevel(user)===null?". Assign a PF2E character to this player before choosing consumables.":""}</p>`:""}
+  ${!gm&&section==="consumables"?`<p class="brazier-note">Character: ${h(user.character?.name??"Not assigned")} · Level ${characterLevel(user)??"—"}${characterLevel(user)===null?". Right-click this player in Foundry → User Configuration → select Player Character. Actor ownership alone is not assignment.":""}</p>`:""}
+  ${!gm?`<p class="brazier-note">${JSON.stringify(rawChosen)===JSON.stringify(saved)?'Saved choices':'Unsaved changes'} · ${missing.length?`${missing.length} removed option(s) need reconciliation. `:''}${chosen.length>limit?'The allowance has dropped. Deselect options before saving.':''}</p>${missing.length?btn('reconcile-choices','Remove Unavailable Choices'):''}`:''}
   <h3>Current Options (${b[section].length})</h3>${!gm&&section==="consumables"?consumableChoicesHTML(app,user,b,chosen):`<div class="brazier-curated-list">${b[section].map(i=>`<article><span><strong>${h(i.name)}</strong>${i.level!==undefined?` <small>Level ${h(i.level)} · ${h(i.category)}</small>`:""}${i.description?prose(i.description):""}</span>${i.uuid.startsWith("Compendium.")?btn("open-source","View",i.uuid):""}${manage?btn("remove-boon","Remove",i.uuid):""}${!gm?btn("toggle-choice",chosen.includes(i.uuid)?"Selected ✓":"Choose",i.uuid,`aria-pressed="${chosen.includes(i.uuid)}"`):""}</article>`).join("")||'<p>No options added yet.</p>'}</div>`}
-  ${!gm?`<div class="brazier-choice-footer"><span>${chosen.length} / ${limit} selected</span>${btn("save-choices","Save Choices","",chosen.length>limit?"disabled":"")}${btn("clear-choices","Clear Choices")}<small>Saved consumables are created on the assigned character during PF2e Dailies preparation. Changes apply at the next preparation; runes and memories remain selections only.</small></div>`:""}</div></section>`;
+  ${gm&&section==="consumables"&&!manage?preparationRosterHTML(b):""}${!gm&&section==="runes"?runeTargetsHTML(app,user):""}
+  ${!gm?`<div class="brazier-choice-footer"><span>${chosen.length} / ${limit} selected</span>${btn("save-choices","Save Choices","",chosen.length>limit||missing.length?"disabled":"")}${btn("clear-choices","Clear Choices")}<small>Saved consumables are created on the assigned character during PF2e Dailies preparation. Changes apply at the next preparation. Rune targets show whether a supported daily boon is enabled; armor and accessory runes remain manual.</small></div>`:""}</div></section>`;
 }
+function preparationRosterHTML(b){return `<details class="brazier-panel-details"><summary>Player Preparation Roster</summary><table class="brazier-data-table"><thead><tr><th>Player / Character</th><th>Saved Consumables</th><th>Preparation</th></tr></thead><tbody>${game.users.filter(u=>!u.isGM).map(u=>{const choices=boonChoices(u).consumables,invalid=choices.length>b.consumableCount||choices.some(id=>!b.consumables.some(i=>i.uuid===id));return `<tr><td>${h(u.name)}<small> · ${h(u.character?.name??'Not assigned')}</small></td><td>${choices.map(id=>{const i=b.consumables.find(i=>i.uuid===id);return i?`${h(i.name)} × ${benisonAmount(characterLevel(u),i.level,b.quantityBands)??'?'}`:'Unavailable option';}).join(', ')||'None selected'}</td><td>${invalid?'Needs reconciliation':u.character?.getFlag?.('brazier','benisonState')?.prepared?'Prepared this cycle':'Next preparation'}</td></tr>`;}).join('')}</tbody></table></details>`;}
 function consumableChoicesHTML(app,user,b,chosen){
   const level=characterLevel(user),full=chosen.length>=b.consumableCount;
   return `<table class="brazier-consumable-choices"><thead><tr><th scope="col">Select</th><th scope="col">Consumable</th><th scope="col">Level</th><th scope="col">Amount</th><th scope="col">Details</th></tr></thead><tbody>${b.consumables.map(item=>{
@@ -89,20 +97,22 @@ function searchHTML(app,section){
 export async function catalogClick(app,event){
   const el=event.target.closest("[data-cat-act]");if(!el?.dataset.catAct)return false;
   const action=el.dataset.catAct,id=el.dataset.value;
-  if(action==="select-curio"){
+  if(action==="search-curios"){}
+  else if(action==="select-curio"){
     if(storyteller(app)&&app.curioDraft&&!window.confirm("Discard unsaved Curio changes?"))return true;
     app.curioId=id;if(storyteller(app))app.curioDraft=clone(availableCurios().find(c=>c.id===id));
   }else if(action==="boon-section"){if(!["consumables","runes","memories"].includes(id))return true;app.boonSection=id;}
   else if(action==="open-source"){const doc=await fromUuid(id);if(!doc||!doc.testUserPermission(viewingAs(app),"OBSERVER"))throw new Error("This source is unavailable or not shared with you.");await doc.sheet.render({force:true});}
-  else if(["toggle-choice","save-choices","clear-choices"].includes(action)){
+  else if(["toggle-choice","save-choices","clear-choices","reconcile-choices"].includes(action)){
     const user=viewingAs(app),section=app.boonSection??"consumables",b=boonCatalog();
     if(user.isGM)throw new Error("Select a player using View as first.");
     app.choiceDrafts??={};const key=`${user.id}:${section}`;
     const chosen=app.choiceDrafts[key]??=clone(boonChoices(user)[section]??[]);
     if(action==="toggle-choice"){if(!b[section].some(i=>i.uuid===id))throw new Error("Option no longer available.");app.choiceDrafts[key]=chosen.includes(id)?chosen.filter(i=>i!==id):[...chosen,id];}
+    if(action==="reconcile-choices")app.choiceDrafts[key]=chosen.filter(id=>b[section].some(i=>i.uuid===id));
     if(action==="clear-choices")app.choiceDrafts[key]=[];
     if(action==="save-choices"){
-      const choices=(app.choiceDrafts[key]??[]).filter(id=>b[section].some(i=>i.uuid===id));
+      const choices=app.choiceDrafts[key]??[];if(choices.some(id=>!b[section].some(i=>i.uuid===id)))throw Error("Remove unavailable choices explicitly before saving.");
       if(game.user.isGM){await setBoonChoices(section,choices,user.id);delete app.choiceDrafts[key];ui.notifications.info(`Brazier: choices saved for ${user.name}.`);}
       else{await requestBoonChoices(section,choices);ui.notifications.info("Brazier: selections requested. An active Storyteller validates and saves them.");}
     }
@@ -117,6 +127,8 @@ export async function catalogClick(app,event){
         case "new-curio":if(c&&!window.confirm("Discard unsaved Curio changes?"))return true;app.curioDraft=freshCurio();app.curioId=app.curioDraft.id;break;
         case "discard-curio":app.curioDraft=null;app.curioId=null;app.giftPicker=null;break;
         case "save-curio":if(c){try{app.curioDraft=await saveCurio(c);}catch(error){if(error.savedCurio)app.curioDraft=clone(error.savedCurio);throw error;}ui.notifications.info("Brazier: Curio saved and item synchronized.");}break;
+        case "preview-curio-benefit":ui.notifications.info((await benefitPreview(c?.gifts.find(g=>g.id===id)?.sourceUuid)).message);break;
+        case "sync-curio-benefits":{if(!c?.updatedAt)throw Error("Save this Curio first.");if(window.confirm("Synchronize this saved Curio’s supported benefits on its bearer?"))await syncCurioBenefits(availableCurios().find(v=>v.id===id));break;}
         case "sync-curio":await syncCurio(id);ui.notifications.info("Brazier: Curio item synchronized.");break;
         case "open-curio-item":await curioWorldItem(id)?.sheet.render({force:true});break;
         case "add-gift":if(c)c.gifts.push(freshGift());break;
@@ -167,6 +179,7 @@ export async function catalogChange(app,event){
     app.choiceDrafts[draftKey]=value?[...new Set([...chosen,el.dataset.option])]:chosen.filter(id=>id!==el.dataset.option);
     await app._refresh();return true;
   }
+  if(key==="curio-query"){app.curioQuery=value;return true;}
   if(!storyteller(app))throw new Error("Storyteller only.");
   if(key.startsWith("bands.")){app.quantityBandDraft??=clone(boonCatalog().quantityBands);app.quantityBandDraft[key.slice(6)]=Number(value);return true;}
   if(key.startsWith("gift-filter.")){app.giftFilters??={};app.giftFilters[key.slice(12)]=value;app.giftPage=0;return true;}
@@ -185,8 +198,8 @@ export async function catalogChange(app,event){
   else if(app.curioDraft){
     const c=app.curioDraft;
     if(key==="curio.users"){c.users=value?[...new Set([...c.users,el.dataset.user])]:c.users.filter(id=>id!==el.dataset.user);}
-    else if(["curio.name","curio.description","curio.icon","curio.iconUrl"].includes(key))c[key.slice(6)]=value;
-    else if(["gift.name","gift.description","gift.tier","gift.aspect","gift.sourceUuid"].includes(key)){const g=c.gifts.find(g=>g.id===el.closest("[data-gift]").dataset.gift);if(g)g[key.slice(5)]=value;}
+    else if(["curio.name","curio.description","curio.icon","curio.iconUrl","curio.bearerUuid","curio.tags"].includes(key))c[key.slice(6)]=value;
+    else if(["gift.name","gift.description","gift.tier","gift.aspect","gift.sourceUuid","gift.minimumLevel","gift.milestone","gift.unlocked","gift.revealed","gift.automation"].includes(key)){const g=c.gifts.find(g=>g.id===el.closest("[data-gift]").dataset.gift);if(g)g[key.slice(5)]=key==="gift.minimumLevel"?Number(value):value;}
   }
   return true;
 }
